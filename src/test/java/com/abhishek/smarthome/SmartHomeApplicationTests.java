@@ -1,10 +1,10 @@
-package com.smarthome.devicedashboard;
+package com.abhishek.smarthome;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DevicedashboardApplicationTests {
+class SmartHomeApplicationTests {
 
 	@Test
 	void contextLoads() {
