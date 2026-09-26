@@ -104,37 +104,6 @@ class ApplianceControllerTest {
 Check: status, `Location`, content type (`application/problem+json` for errors), JSON fields, and that the
 service was (or was not) called.
 
-**JPA slice**
-```java
-@DataJpaTest
-class MetricReadingRepositoryTest {
-    @Autowired MetricReadingRepository repository;
-    @Autowired TestEntityManager em;
-    @Test void shouldAggregateOnlyWithinHalfOpenRange() { /* boundary readings at from and to */ }
-}
-```
-Add `@AutoConfigureTestDatabase(replace = NONE)` + Testcontainers when testing Postgres-specific SQL.
-
-**Integration with Testcontainers (once dependencies are added)**
-```java
-@TestConfiguration(proxyBeanMethods = false)
-public class TestcontainersConfig {
-    @Bean @ServiceConnection
-    PostgreSQLContainer postgres() { return new PostgreSQLContainer("postgres:17-alpine"); }
-}
-
-@SpringBootTest(webEnvironment = RANDOM_PORT)
-@Import({TestcontainersConfig.class, TestClockConfig.class})
-class CollectionWorkflowIT {
-    @Autowired RestTestClient client;   // or TestRestTemplate
-    @Test void shouldCollectMetricsAndProduceReport() {
-        // register appliance → trigger POST /appliances/{id}/collections → await metrics → POST /reports → poll until COMPLETED → assert aggregates
-    }
-}
-```
-Reuse one container per JVM (static bean / `@ImportTestcontainers`) to keep ITs fast. If Docker is unavailable,
-fall back to H2 and state that in the summary.
-
 ## Step 4 — Domain-specific must-cover cases
 
 - **Collection**: due vs not-due appliances; disabled skipped; `nextCollectionAt` advanced by interval; backoff on failure;
