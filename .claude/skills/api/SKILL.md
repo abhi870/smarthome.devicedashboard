@@ -22,14 +22,14 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 
 | Operation | Method & path | Success | Typical errors |
 |---|---|---|---|
-| List | `GET /api/v1/{res}?page&size&sort&filters` | 200 `PageResponse<T>` | 400 bad filter |
-| Get | `GET /api/v1/{res}/{id}` | 200 | 404 |
-| Create | `POST /api/v1/{res}` | 201 + `Location` + body | 400, 409 duplicate |
-| Partial update | `PATCH /api/v1/{res}/{id}` | 200 | 400, 404, 409 version conflict |
-| Replace (rare) | `PUT /api/v1/{res}/{id}` | 200 | 400, 404, 409 |
-| Delete | `DELETE /api/v1/{res}/{id}` | 204 (idempotent: 204 even if already gone is acceptable, or 404 — be consistent) | 404 |
-| Action | `POST /api/v1/{res}/{id}/{verb-noun}` e.g. `/collections` | 202 if async, 200/201 if sync | 404, 409, 429 |
-| Async job | `POST` → 202 + `Location: /api/v1/{res}/{id}`; poll `GET` returns `status` | 202 | 400 |
+| List | `GET /api/v1/smarthome/{res}?page&size&sort&filters` | 200 `PageResponse<T>` | 400 bad filter |
+| Get | `GET /api/v1/smarthome/{res}/{id}` | 200 | 404 |
+| Create | `POST /api/v1/smarthome/{res}` | 201 + `Location` + body | 400, 409 duplicate |
+| Partial update | `PATCH /api/v1/smarthome/{res}/{id}` | 200 | 400, 404, 409 version conflict |
+| Replace (rare) | `PUT /api/v1/smarthome/{res}/{id}` | 200 | 400, 404, 409 |
+| Delete | `DELETE /api/v1/smarthome/{res}/{id}` | 204 (idempotent: 204 even if already gone is acceptable, or 404 — be consistent) | 404 |
+| Action | `POST /api/v1/smarthome/{res}/{id}/{verb-noun}` e.g. `/collections` | 202 if async, 200/201 if sync | 404, 409, 429 |
+| Async job | `POST` → 202 + `Location: /api/v1/smarthome/{res}/{id}`; poll `GET` returns `status` | 202 | 400 |
 
 - Plural kebab-case nouns, UUID path ids, camelCase JSON, ISO-8601 UTC `Instant`s, enums as UPPER_SNAKE strings.
 - Time ranges: `from` inclusive, `to` exclusive; validate `from < to` and max span.
@@ -76,7 +76,7 @@ public record ApplianceResponse(UUID id, String name, ApplianceType type, Vendor
 **Controller** — thin: validate, delegate, map, set status/headers.
 ```java
 @RestController
-@RequestMapping("/api/v1/appliances")
+@RequestMapping("/api/v1/smarthome/appliances")
 @RequiredArgsConstructor
 @Tag(name = "Appliances")                       // springdoc, once added
 class ApplianceController {
@@ -85,7 +85,7 @@ class ApplianceController {
     @PostMapping
     ResponseEntity<ApplianceResponse> create(@Valid @RequestBody CreateApplianceRequest req, UriComponentsBuilder uri) {
         var created = ApplianceResponse.from(service.register(req.toCommand()));
-        return ResponseEntity.created(uri.path("/api/v1/appliances/{id}").build(created.id())).body(created);
+        return ResponseEntity.created(uri.path("/api/v1/smarthome/appliances/{id}").build(created.id())).body(created);
     }
 
     @GetMapping

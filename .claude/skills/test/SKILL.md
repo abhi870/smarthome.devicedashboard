@@ -53,7 +53,7 @@ Create/extend `src/test/java/.../support/TestData.java` (or per-feature `Applian
 public final class ApplianceFixtures {
     public static Appliance.ApplianceBuilder anAppliance() {
         return Appliance.builder().name("Living Room AC").type(ApplianceType.AIR_CONDITIONER)
-                .vendor(Vendor.ACME).vendorDeviceId("acme-" + UUID.randomUUID()).collectionIntervalSeconds(60).enabled(true);
+                .vendor(Vendor.SAMSUNG).vendorDeviceId("sam-" + UUID.randomUUID()).collectionIntervalSeconds(60).enabled(true);
     }
 }
 ```
@@ -73,7 +73,7 @@ class ApplianceServiceTest {
     @Test
     void shouldRejectDuplicateVendorDevice() {
         // given
-        given(repository.existsByVendorAndVendorDeviceId(Vendor.ACME, "d-1")).willReturn(true);
+        given(repository.existsByVendorAndVendorDeviceId(Vendor.SAMSUNG, "d-1")).willReturn(true);
         // when / then
         assertThatThrownBy(() -> service.register(command("d-1")))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("d-1");
@@ -92,9 +92,9 @@ class ApplianceControllerTest {
 
     @Test
     void shouldReturn400WithFieldErrors_whenNameMissing() {
-        assertThat(mvc.post().uri("/api/v1/appliances").contentType(APPLICATION_JSON)
+        assertThat(mvc.post().uri("/api/v1/smarthome/appliances").contentType(APPLICATION_JSON)
                 .content("""
-                        {"type":"OVEN","vendor":"ACME","vendorDeviceId":"x"}
+                        {"type":"OVEN","vendor":"SAMSUNG","vendorDeviceId":"x"}
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errors[0].field").isEqualTo("name");

@@ -31,7 +31,7 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 - Reports: aggregation correctness, empty data, idempotent daily report, async status transitions.
 
 **API contract** (CLAUDE.md §5)
-- `/api/v1`, plural nouns, correct status codes (201 + `Location`, 202 async, 204 delete, 409 conflicts).
+- Product API under `/api/v1/smarthome`, mock vendors under `/api/v1/{vendor}` in `mockvendor`; plural nouns, correct status codes (201 + `Location`, 202 async, 204 delete, 409 conflicts).
 - Request records validated (`@Valid`, constraints); errors as `ProblemDetail`; no entity leakage; bounded pagination.
 - Backward-incompatible changes to existing endpoints.
 

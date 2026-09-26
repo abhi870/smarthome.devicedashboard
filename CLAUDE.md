@@ -6,7 +6,8 @@ Guidance for Claude (and humans) working in this repository. Read this before wr
 
 A backend that gives clients **one consistent API** over connected home appliances (TV, fridge, AC, oven,
 washer, dryer, …) from **different vendors** whose APIs differ in style, auth, capabilities, metric names,
-rate limits and reliability. External vendors are **mocked** in-process.
+rate limits and reliability. External vendors (Samsung, Amazon, Cisco) are **mocked** as HTTP APIs served
+by the same application; our backend calls them over HTTP exactly as it would call real vendor clouds.
 
 Core capabilities (all must work end to end and be reviewable locally):
 
@@ -50,18 +51,22 @@ are mirrored as curl in `README.md`.
 
 ## 4. Architecture
 
-Package-by-feature, hexagonal-lite. Base package: **`com.smarthome.devicedashboard`**.
+Package-by-feature, hexagonal-lite. Base package: **`com.abhishek.smarthome`**.
 
 ```
-com.smarthome.devicedashboard
+com.abhishek.smarthome
 ├── appliance/     # registration & management
-├── vendor/        # VendorAdapter port, registry, metric normalization
-│   └── mock/      # AcmeCloud (REST + API key), GlobexHub (OAuth token, renamed metrics), InitechLegacy (slow, flaky, rate-limited)
+├── vendor/        # vendor integration (outbound)
+│   ├── config/    # per-vendor @ConfigurationProperties + VendorConfigProvider
+│   ├── auth/      # pluggable outbound auth (API key header / query), one factory per AuthType
+│   ├── client/    # VendorClientProvider (RestClient per vendor), VendorClientFactory, samsung/ amazon/ cisco/ clients
+│   └── adapter/   # (later) per-vendor mapping of raw metrics → canonical MetricType
+├── mockvendor/    # fake vendor clouds: Samsung, Amazon, Cisco mock controllers + telemetry generator
 ├── collection/    # scheduling + executing metric collection, CollectionRun audit
 ├── metrics/       # historical metric storage & queries
 ├── report/        # daily + on-demand report generation & retrieval (JSON, CSV)
 ├── common/        # error handling (ProblemDetail), paging DTO, Clock bean, config properties
-└── DevicedashboardApplication.java
+└── SmartHomeApplication.java
 ```
 
 Inside each feature: `api/` (controllers + request/response records), `domain/` (entities, services, ports),
@@ -70,6 +75,8 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 - Controllers never touch repositories or JPA entities — go through a service; return DTO records.
 - `domain` must not depend on `api` or Spring Web.
 - Only `vendor` knows vendor-specific payloads; everything downstream sees **normalized** metrics.
+- `mockvendor` is a stand-in for external systems: nothing outside it may depend on it, and it must not
+  depend on `vendor` (it has its own view of expected credentials and devices).
 - Features talk via services/ports, never via another feature's repository.
 
 ### Key domain concepts
@@ -77,11 +84,20 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 - **Appliance**: `UUID id`, name, `ApplianceType` enum, `Vendor` enum, `vendorDeviceId`, room,
   `collectionIntervalSeconds` (min 10, default 300), `enabled`, `nextCollectionAt`, `lastCollectedAt`,
   `createdAt/updatedAt`, `@Version`. Unique `(vendor, vendorDeviceId)`.
-- **VendorAdapter** (port): `Vendor vendor()`, `List<MetricReading> fetchMetrics(ApplianceRef ref)`,
-  `Set<MetricType> capabilities(ApplianceType type)`. Adapters map vendor names/units → canonical `MetricType`
-  (`POWER_W`, `ENERGY_KWH`, `TEMPERATURE_C`, `HUMIDITY_PCT`, `RUNTIME_MIN`, `DOOR_OPEN_COUNT`, `STATUS`).
-  Unknown metrics are logged and dropped. Vendor failures surface as typed exceptions
-  (`VendorUnavailableException`, `VendorRateLimitedException`, `VendorAuthException`).
+- **Vendor configuration**: `smarthome.vendors.<vendor>` → `base-url`, timeouts, `auth { type, name, prefix, api-key }`.
+  `AuthType`: `API_KEY_HEADER` (header `name` = `prefix + api-key`), `API_KEY_QUERY` (query param `name`).
+  New auth schemes = new `VendorAuthInterceptorFactory` + config; no client changes. Secrets from env vars, never logged.
+- **VendorClient** (per vendor, built by `VendorClientFactory` from `VendorClientProvider`): `listDevices()` and
+  `fetchMetrics(deviceIds, from, to)` returning **raw per-minute samples** — `RawMetricSample(vendor, externalId,
+  timestamp, Map<String,Object> metrics, JsonNode raw)`. Clients parse only the envelope (device id, timestamp);
+  metric names/units/structure stay vendor-specific. Vendor failures surface as typed exceptions
+  (`VendorAuthException`, `VendorNotFoundException`, `VendorUnavailableException`, `VendorRateLimitedException`).
+- **VendorAdapter** (later step): maps raw vendor metrics → canonical `MetricType`
+  (`POWER_W`, `ENERGY_KWH`, `TEMPERATURE_C`, `HUMIDITY_PCT`, `RUNTIME_MIN`, `DOOR_OPEN_COUNT`, `STATUS`);
+  unknown metrics are logged and dropped.
+- **Mock vendor APIs** (`/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth (header,
+  bearer, query param), range params (ISO / epoch-ms / since+limit), time formats and payload shapes; one sample
+  per minute, deterministic from `Clock` + device type.
 - **MetricReading**: applianceId, metricType, value (`double`), unit, `recordedAt` (vendor time), `collectedAt`.
   Append-only; index `(appliance_id, metric_type, recorded_at)`; unique on the same triple for idempotency.
 - **CollectionRun**: one row per attempt — status `SUCCESS | PARTIAL | FAILED | RATE_LIMITED | SKIPPED`,
@@ -99,15 +115,17 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
   (+ backoff on failure). Changing an interval via API takes effect on the next tick.
 - `DailyReportJob` runs by cron (`smarthome.report.daily-cron`, default `0 5 0 * * *`, zone
   `smarthome.report.zone`) for the previous day; idempotent (unique on type + range + scope).
-- On-demand reports: `POST /reports` → 202, generated async, poll `GET /reports/{id}`.
+- On-demand reports: `POST /api/v1/smarthome/reports` → 202, generated async, poll `GET /api/v1/smarthome/reports/{id}`.
 - Guard jobs with ShedLock when multi-instance matters; single instance is fine for local review.
 - Always inject `java.time.Clock`; never call `Instant.now()` / `LocalDate.now()` directly.
 - Vendor HTTP/mock calls happen **outside** DB transactions; persist results in a short transaction after.
 
 ## 5. API conventions (full details in the `/api` skill)
 
-- Base path `/api/v1`. JSON, camelCase. Plural nouns: `/appliances`, `/appliances/{id}/metrics`,
-  `/appliances/{id}/collections`, `/reports`, `/vendors`.
+- Product API base path **`/api/v1/smarthome`**. JSON, camelCase. Plural nouns: `/appliances`, `/appliances/{id}/metrics`,
+  `/appliances/{id}/collections`, `/reports`, `/vendors` (e.g. `/api/v1/smarthome/appliances`).
+- Mock vendor APIs live under **`/api/v1/{vendor}`** (`samsung`, `amazon`, `cisco`) in the `mockvendor` package and a
+  separate OpenAPI group. `smarthome` is reserved and can never be a vendor code.
 - Errors: RFC 9457 `ProblemDetail` (`application/problem+json`) from one `@RestControllerAdvice`.
 - Validation: Jakarta Bean Validation on request records → 400 with `errors[]` field list.
 - Pagination: `page`, `size` (max 100), `sort` → `{ content, page: { number, size, totalElements, totalPages } }`.
@@ -162,8 +180,10 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 
 ## 10. Do / Don't
 
-- DO keep vendor quirks inside adapters; DO make mocks realistically imperfect (latency, 429, 5xx, renamed metrics, unit differences).
+- DO keep vendor quirks inside `vendor` clients/adapters. Build the **happy flow first**; mock imperfections
+  (latency, 429, 5xx, token expiry) are added in a later step behind config that defaults to off.
 - DO make jobs idempotent and restart-safe.
 - DON'T add Kafka / Redis / Quartz unless asked — runnable with Maven (+ optional Docker) only.
-- DON'T commit secrets; mock vendor credentials are obvious placeholders in `application-dev.yaml`.
+- DON'T commit secrets; mock vendor credentials are obvious demo placeholders used as defaults in
+  `application.yaml` (`${SAMSUNG_API_KEY:samsung-demo-key}`), overridable by env vars.
 - DON'T change public API contracts without updating tests, OpenAPI annotations and README.
