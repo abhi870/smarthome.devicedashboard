@@ -137,22 +137,26 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 - Deterministic: fixed/mutable test `Clock`, seeded mock vendors, no `Thread.sleep` (Awaitility), no order dependence.
 - Use `@MockitoBean` (not the removed `@MockBean`).
 
-## 8. Skills available in `.claude/skills/`
+## 8. Skills and agents
 
 | Skill | Use it to |
 |---|---|
 | `/api <name>` | Build a production-grade REST endpoint/resource end to end (DTOs, service, controller, errors, docs, tests). |
 | `/test <target>` | Write or improve tests for a class/feature using current Spring Boot 4 practices. |
-| `/vendor-adapter <vendor>` | Add a mocked vendor integration with its quirks + metric normalization. |
 | `/db-change <change>` | Add entities/repositories/schema changes safely (and Flyway migrations once enabled). |
-| `/scheduled-job <job>` | Add a scheduled/background job (collection, reports) that is idempotent and testable. |
-| `/verify` | Build, test, run the app, smoke-test the main workflow and summarize results. |
+
+### Agents in `.claude/agents/`
+
+| Agent | Use it to |
+|---|---|
+| `code-reviewer` | Review changes (uncommitted diff, branch or files) against this file's conventions; reports prioritized findings, never edits code. Run it before committing non-trivial work. |
 
 ## 9. Workflow for Claude
 
 1. Read this file and the relevant skill before coding. Check existing code for patterns first.
 2. Make the smallest coherent change; keep packages/feature boundaries.
 3. Write/update tests with the code. Run `./mvnw verify` (or `./mvnw test` if no ITs yet) before saying done.
+   For non-trivial changes, run the `code-reviewer` agent and address its blocking findings.
 4. When endpoints change, update `README.md` walkthrough and `http/*.http`.
 5. Finish with a summary: files changed, endpoints added, how to verify.
 
