@@ -13,5 +13,16 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("smarthome")
-public record SmartHomeProperties(@NotEmpty Map<Vendor, @Valid VendorProperties> vendors) {
+public final class SmartHomeProperties {
+
+	@NotEmpty
+	private final Map<Vendor, @Valid VendorProperties> vendors;
+
+	public SmartHomeProperties(Map<Vendor, VendorProperties> vendors) {
+		this.vendors = vendors;
+	}
+
+	public Map<Vendor, VendorProperties> getVendors() {
+		return vendors;
+	}
 }

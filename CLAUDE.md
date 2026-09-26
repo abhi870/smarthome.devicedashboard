@@ -22,13 +22,13 @@ Core capabilities (all must work end to end and be reviewable locally):
 
 | Concern | Current | Notes |
 |---|---|---|
-| Language | Java 17 (`java.version`) | Records, sealed types, pattern-matching `instanceof`, switch expressions. No virtual threads (21+). |
+| Language | Java 17 (`java.version`) | Sealed types, pattern-matching `instanceof`, switch expressions. **No `record` types** (see §6). No virtual threads (21+). |
 | Framework | Spring Boot 4.1.1 (Spring Framework 7) | Modular starters: `spring-boot-starter-webmvc`, `-data-jpa`; Jackson 3 (`tools.jackson.*`). |
 | Build | Maven wrapper `./mvnw` | |
 | DB (default) | PostgreSQL via `compose.yaml` + `spring-boot-docker-compose` | Started automatically by `spring-boot:run`. |
 | DB (fallback) | H2 in-memory + `spring-boot-h2console` | Profile `h2` for running without Docker; console at `/h2-console`. |
 | Persistence | Spring Data JPA (Hibernate 7) | Keep SQL portable across Postgres & H2. |
-| Boilerplate | Lombok (present) | Allowed only on JPA entities/services (see §6). DTOs are records. |
+| Boilerplate | Lombok (present) | Allowed only on JPA entities/services (see §6). DTOs are plain classes. |
 | Tests | `spring-boot-starter-webmvc-test`, `-data-jpa-test` (JUnit 5, AssertJ, Mockito, MockMvc) | |
 
 **Add when first needed** (propose the pom change in the same PR, don't add speculatively):
@@ -58,7 +58,7 @@ com.abhishek.smarthome
 ├── appliance/     # registration & management
 ├── vendor/        # vendor integration (outbound)
 │   ├── config/    # per-vendor @ConfigurationProperties + VendorConfigProvider
-│   ├── auth/      # pluggable outbound auth (API key header / query), one factory per AuthType
+│   ├── auth/      # pluggable outbound auth (API key header today), one factory per AuthType
 │   ├── client/    # VendorClientProvider (RestClient per vendor), VendorClientFactory, samsung/ amazon/ cisco/ clients
 │   └── adapter/   # (later) per-vendor mapping of raw metrics → canonical MetricType
 ├── mockvendor/    # fake vendor clouds: Samsung, Amazon, Cisco mock controllers + telemetry generator
@@ -69,10 +69,10 @@ com.abhishek.smarthome
 └── SmartHomeApplication.java
 ```
 
-Inside each feature: `api/` (controllers + request/response records), `domain/` (entities, services, ports),
+Inside each feature: `api/` (controllers + request/response classes), `domain/` (entities, services, ports),
 `infra/` (repositories, adapters). Rules (enforce with an ArchUnit test once added):
 
-- Controllers never touch repositories or JPA entities — go through a service; return DTO records.
+- Controllers never touch repositories or JPA entities — go through a service; return DTO classes.
 - `domain` must not depend on `api` or Spring Web.
 - Only `vendor` knows vendor-specific payloads; everything downstream sees **normalized** metrics.
 - `mockvendor` is a stand-in for external systems: nothing outside it may depend on it, and it must not
@@ -85,7 +85,7 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
   `collectionIntervalSeconds` (min 10, default 300), `enabled`, `nextCollectionAt`, `lastCollectedAt`,
   `createdAt/updatedAt`, `@Version`. Unique `(vendor, vendorDeviceId)`.
 - **Vendor configuration**: `smarthome.vendors.<vendor>` → `base-url`, timeouts, `auth { type, name, prefix, api-key }`.
-  `AuthType`: `API_KEY_HEADER` (header `name` = `prefix + api-key`), `API_KEY_QUERY` (query param `name`).
+  `AuthType`: `API_KEY_HEADER` (header `name` = `prefix + api-key`; all vendors use this today).
   New auth schemes = new `VendorAuthInterceptorFactory` + config; no client changes. Secrets from env vars, never logged.
 - **VendorClient** (per vendor, built by `VendorClientFactory` from `VendorClientProvider`): `listDevices()` and
   `fetchMetrics(deviceIds, from, to)` returning **raw per-minute samples** — `RawMetricSample(vendor, externalId,
@@ -95,8 +95,8 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 - **VendorAdapter** (later step): maps raw vendor metrics → canonical `MetricType`
   (`POWER_W`, `ENERGY_KWH`, `TEMPERATURE_C`, `HUMIDITY_PCT`, `RUNTIME_MIN`, `DOOR_OPEN_COUNT`, `STATUS`);
   unknown metrics are logged and dropped.
-- **Mock vendor APIs** (`/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth (header,
-  bearer, query param), range params (ISO / epoch-ms / since+limit), time formats and payload shapes; one sample
+- **Mock vendor APIs** (`/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth headers
+  (`X-API-Key`, `Authorization: Bearer`, `X-Cisco-Api-Key`), range params (ISO / epoch-ms / since+limit), time formats and payload shapes; one sample
   per minute, deterministic from `Clock` + device type.
 - **MetricReading**: applianceId, metricType, value (`double`), unit, `recordedAt` (vendor time), `collectedAt`.
   Append-only; index `(appliance_id, metric_type, recorded_at)`; unique on the same triple for idempotency.
@@ -127,7 +127,7 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 - Mock vendor APIs live under **`/api/v1/{vendor}`** (`samsung`, `amazon`, `cisco`) in the `mockvendor` package and a
   separate OpenAPI group. `smarthome` is reserved and can never be a vendor code.
 - Errors: RFC 9457 `ProblemDetail` (`application/problem+json`) from one `@RestControllerAdvice`.
-- Validation: Jakarta Bean Validation on request records → 400 with `errors[]` field list.
+- Validation: Jakarta Bean Validation on request classes → 400 with `errors[]` field list.
 - Pagination: `page`, `size` (max 100), `sort` → `{ content, page: { number, size, totalElements, totalPages } }`.
 - Time: ISO-8601 UTC `Instant`; ranges are half-open `[from, to)`; max on-demand range configurable (default 31 days).
 - `POST` create → 201 + `Location`. Async → 202 + `Location`. `PATCH` partial update. `DELETE` → 204.
@@ -135,12 +135,16 @@ Inside each feature: `api/` (controllers + request/response records), `domain/` 
 
 ## 6. Coding standards
 
-- DTOs, commands, value objects → Java **records**. Entities → classes with protected no-arg ctor.
+- **Never use Java `record` types** in this project (main or test code). DTOs, commands, value objects and
+  configuration properties are regular classes: `private final` fields, one constructor, JavaBean getters
+  (`getX()` / `isX()`), and `equals`/`hashCode`/`toString` only when needed (never print secrets).
+  Entities → classes with protected no-arg ctor.
 - Lombok: allowed `@Getter`, `@RequiredArgsConstructor`, `@Slf4j`, `@Builder` on entities/services.
   Forbidden: `@Data` / `@EqualsAndHashCode` on entities (breaks JPA identity), `@Setter` on entities
   (use intention-revealing methods like `appliance.changeInterval(..)`), `@SneakyThrows`.
 - Constructor injection only; `final` fields; no field `@Autowired`.
-- Config via `@ConfigurationProperties` records under `smarthome.*` with `@Validated`.
+- Config via `@ConfigurationProperties` classes under `smarthome.*` with `@Validated` (constructor binding:
+  single constructor, `final` fields, `@DefaultValue` on constructor params, constraints on fields).
 - No `Optional` fields/params — only return types. Explicit null handling (JSpecify `@Nullable` where useful).
 - Logging: SLF4J parameterized; put `applianceId` / `vendor` in MDC during collection; never log secrets.
 - Transactions at service layer (`@Transactional(readOnly = true)` for queries).

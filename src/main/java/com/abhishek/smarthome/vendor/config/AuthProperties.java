@@ -4,19 +4,47 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Outbound authentication settings for one vendor.
- *
- * @param type   authentication scheme
- * @param name   header or query parameter name that carries the key
- * @param prefix optional value prefix, e.g. {@code "Bearer "}; only used by {@link AuthType#API_KEY_HEADER}
- * @param apiKey the secret; supplied via environment variables outside local development
- */
-public record AuthProperties(
-		@NotNull AuthType type,
-		@NotBlank String name,
-		@Nullable String prefix,
-		@NotBlank String apiKey) {
+/** Outbound authentication settings for one vendor. */
+public final class AuthProperties {
+
+	/** Authentication scheme. */
+	@NotNull
+	private final AuthType type;
+
+	/** Header name that carries the key. */
+	@NotBlank
+	private final String name;
+
+	/** Optional value prefix, e.g. {@code "Bearer "}. */
+	@Nullable
+	private final String prefix;
+
+	/** The secret; supplied via environment variables outside local development. */
+	@NotBlank
+	private final String apiKey;
+
+	public AuthProperties(AuthType type, String name, @Nullable String prefix, String apiKey) {
+		this.type = type;
+		this.name = name;
+		this.prefix = prefix;
+		this.apiKey = apiKey;
+	}
+
+	public AuthType getType() {
+		return type;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public @Nullable String getPrefix() {
+		return prefix;
+	}
+
+	public String getApiKey() {
+		return apiKey;
+	}
 
 	@Override
 	public String toString() {

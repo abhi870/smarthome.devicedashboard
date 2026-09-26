@@ -1,6 +1,6 @@
 ---
 name: api
-description: Build a production-grade Spring Boot REST API for the named resource or endpoint (e.g. "/api appliances", "/api POST /reports"). Creates request/response records, validation, service, controller, ProblemDetail errors, pagination, OpenAPI docs, tests and sample requests following CLAUDE.md conventions.
+description: Build a production-grade Spring Boot REST API for the named resource or endpoint (e.g. "/api appliances", "/api POST /reports"). Creates request/response classes (never records), validation, service, controller, ProblemDetail errors, pagination, OpenAPI docs, tests and sample requests following CLAUDE.md conventions.
 argument-hint: <resource or endpoint, e.g. "appliances" or "GET /appliances/{id}/metrics">
 ---
 
@@ -40,9 +40,9 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 
 ```
 X/api/FooController.java
-X/api/dto/CreateFooRequest.java      // record + Jakarta validation
-X/api/dto/UpdateFooRequest.java      // record, all fields nullable for PATCH
-X/api/dto/FooResponse.java           // record + static from(Foo)
+X/api/dto/CreateFooRequest.java      // class + Jakarta validation
+X/api/dto/UpdateFooRequest.java      // class, all fields nullable for PATCH
+X/api/dto/FooResponse.java           // class + static from(Foo)
 X/domain/FooService.java             // @Service, @Transactional boundaries, business rules
 X/domain/FooNotFoundException.java   // extends common NotFoundException
 X/infra/FooRepository.java           // Spring Data (if not existing)
@@ -53,23 +53,47 @@ http/foo.http                        // sample requests
 
 ## Step 3 — Implementation templates
 
-**Request record with validation**
+No `record` types in this project (CLAUDE.md §6) — DTOs are plain classes with `private final` fields,
+one constructor (`@JsonCreator` + `@JsonProperty` for request bodies) and getters.
+
+**Request class with validation**
 ```java
-public record CreateApplianceRequest(
-        @NotBlank @Size(max = 100) String name,
-        @NotNull ApplianceType type,
-        @NotNull Vendor vendor,
-        @NotBlank @Size(max = 100) String vendorDeviceId,
-        @Size(max = 50) String room,
-        @Min(10) @Max(86_400) Integer collectionIntervalSeconds) { }
+public final class CreateApplianceRequest {
+    @NotBlank @Size(max = 100) private final String name;
+    @NotNull private final ApplianceType type;
+    @NotNull private final Vendor vendor;
+    @NotBlank @Size(max = 100) private final String vendorDeviceId;
+    @Size(max = 50) private final String room;
+    @Min(10) @Max(86_400) private final Integer collectionIntervalSeconds;
+
+    @JsonCreator
+    public CreateApplianceRequest(@JsonProperty("name") String name, @JsonProperty("type") ApplianceType type,
+            @JsonProperty("vendor") Vendor vendor, @JsonProperty("vendorDeviceId") String vendorDeviceId,
+            @JsonProperty("room") String room, @JsonProperty("collectionIntervalSeconds") Integer collectionIntervalSeconds) {
+        this.name = name; this.type = type; this.vendor = vendor;
+        this.vendorDeviceId = vendorDeviceId; this.room = room; this.collectionIntervalSeconds = collectionIntervalSeconds;
+    }
+
+    public String getName() { return name; }
+    // ... one getter per field
+}
 ```
 
-**Response record**
+**Response class**
 ```java
-public record ApplianceResponse(UUID id, String name, ApplianceType type, Vendor vendor,
-        String vendorDeviceId, String room, int collectionIntervalSeconds, boolean enabled,
-        Instant lastCollectedAt, Instant nextCollectionAt, Instant createdAt, Instant updatedAt, long version) {
-    public static ApplianceResponse from(Appliance a) { /* map fields */ }
+public final class ApplianceResponse {
+    private final UUID id;
+    private final String name;
+    // ... type, vendor, vendorDeviceId, room, collectionIntervalSeconds, enabled,
+    //     lastCollectedAt, nextCollectionAt, createdAt, updatedAt, version
+
+    private ApplianceResponse(Appliance a) { this.id = a.getId(); this.name = a.getName(); /* ... */ }
+
+    public static ApplianceResponse from(Appliance a) { return new ApplianceResponse(a); }
+
+    public UUID getId() { return id; }
+    public String getName() { return name; }
+    // ... one getter per field
 }
 ```
 
@@ -85,7 +109,7 @@ class ApplianceController {
     @PostMapping
     ResponseEntity<ApplianceResponse> create(@Valid @RequestBody CreateApplianceRequest req, UriComponentsBuilder uri) {
         var created = ApplianceResponse.from(service.register(req.toCommand()));
-        return ResponseEntity.created(uri.path("/api/v1/smarthome/appliances/{id}").build(created.id())).body(created);
+        return ResponseEntity.created(uri.path("/api/v1/smarthome/appliances/{id}").build(created.getId())).body(created);
     }
 
     @GetMapping
@@ -107,8 +131,8 @@ public class ApplianceService {
 
     @Transactional
     public Appliance register(RegisterApplianceCommand cmd) {
-        if (repository.existsByVendorAndVendorDeviceId(cmd.vendor(), cmd.vendorDeviceId())) {
-            throw new ConflictException("Appliance already registered for vendor device " + cmd.vendorDeviceId());
+        if (repository.existsByVendorAndVendorDeviceId(cmd.getVendor(), cmd.getVendorDeviceId())) {
+            throw new ConflictException("Appliance already registered for vendor device " + cmd.getVendorDeviceId());
         }
         return repository.save(Appliance.register(cmd, clock.instant()));
     }
@@ -121,10 +145,30 @@ public class ApplianceService {
 
 **Paging DTO** (stable JSON, avoids serializing `PageImpl`)
 ```java
-public record PageResponse<T>(List<T> content, PageMeta page) {
-    public record PageMeta(int number, int size, long totalElements, int totalPages) { }
+public final class PageResponse<T> {
+    private final List<T> content;
+    private final PageMeta page;
+
+    private PageResponse(List<T> content, PageMeta page) { this.content = content; this.page = page; }
+
     public static <T> PageResponse<T> from(Page<T> p) {
-        return new PageResponse<>(p.getContent(), new PageMeta(p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages()));
+        return new PageResponse<>(p.getContent(),
+                new PageMeta(p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages()));
+    }
+
+    public List<T> getContent() { return content; }
+    public PageMeta getPage() { return page; }
+
+    public static final class PageMeta {
+        private final int number, size, totalPages;
+        private final long totalElements;
+        PageMeta(int number, int size, long totalElements, int totalPages) {
+            this.number = number; this.size = size; this.totalElements = totalElements; this.totalPages = totalPages;
+        }
+        public int getNumber() { return number; }
+        public int getSize() { return size; }
+        public long getTotalElements() { return totalElements; }
+        public int getTotalPages() { return totalPages; }
     }
 }
 ```

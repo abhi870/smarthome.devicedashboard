@@ -59,7 +59,7 @@ No `@Data`, no public setters; behavior methods enforce invariants. Assign UUIDs
 
 ## Repository rules
 
-- Spring Data interfaces in `infra/`; derived queries for simple cases, `@Query` for the rest; projections as records.
+- Spring Data interfaces in `infra/`; derived queries for simple cases, `@Query` for the rest; projections as interfaces or classes (no records).
 - List endpoints: `Page<T>` with bounded size; avoid N+1 (`@EntityGraph` or fetch join).
 - Postgres-only SQL (e.g. `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`) only behind an `infra` class with an H2-safe alternative or a Testcontainers-only test.
 

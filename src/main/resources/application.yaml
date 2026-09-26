@@ -6,12 +6,16 @@ smarthome:
   vendors:
     samsung:
       base-url: ${SAMSUNG_BASE_URL:http://localhost:${server.port:8080}/api/v1/samsung}
+      connect-timeout: 1s
+      read-timeout: 2s
       auth:
         type: API_KEY_HEADER
         name: X-API-Key
         api-key: ${SAMSUNG_API_KEY:samsung-demo-key}
     amazon:
       base-url: ${AMAZON_BASE_URL:http://localhost:${server.port:8080}/api/v1/amazon}
+      connect-timeout: 1s
+      read-timeout: 3s
       auth:
         type: API_KEY_HEADER
         name: Authorization
@@ -19,7 +23,9 @@ smarthome:
         api-key: ${AMAZON_API_KEY:amazon-demo-key}
     cisco:
       base-url: ${CISCO_BASE_URL:http://localhost:${server.port:8080}/api/v1/cisco}
+      connect-timeout: 2s
+      read-timeout: 5s
       auth:
-        type: API_KEY_QUERY
-        name: api_key
+        type: API_KEY_HEADER
+        name: X-Cisco-Api-Key
         api-key: ${CISCO_API_KEY:cisco-demo-key}
