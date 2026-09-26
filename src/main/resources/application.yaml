@@ -1,3 +1,25 @@
 spring:
   application:
     name: devicedashboard
+
+smarthome:
+  vendors:
+    samsung:
+      base-url: ${SAMSUNG_BASE_URL:http://localhost:${server.port:8080}/api/v1/samsung}
+      auth:
+        type: API_KEY_HEADER
+        name: X-API-Key
+        api-key: ${SAMSUNG_API_KEY:samsung-demo-key}
+    amazon:
+      base-url: ${AMAZON_BASE_URL:http://localhost:${server.port:8080}/api/v1/amazon}
+      auth:
+        type: API_KEY_HEADER
+        name: Authorization
+        prefix: "Bearer "
+        api-key: ${AMAZON_API_KEY:amazon-demo-key}
+    cisco:
+      base-url: ${CISCO_BASE_URL:http://localhost:${server.port:8080}/api/v1/cisco}
+      auth:
+        type: API_KEY_QUERY
+        name: api_key
+        api-key: ${CISCO_API_KEY:cisco-demo-key}
