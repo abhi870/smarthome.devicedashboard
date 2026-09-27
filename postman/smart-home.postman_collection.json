@@ -1230,6 +1230,423 @@
           ]
         }
       ]
+    },
+    {
+      "name": "6. Device readings",
+      "description": "Readings of the Bedroom AC: homeDeviceId, metric, time, value and unit (strings). unit is optional (defaults to the metric's unit). time = current minute; startDate/endDate = today (UTC), set by pre-request scripts.",
+      "item": [
+        {
+          "name": "Save POWER reading",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeDeviceId\": \"{{amzAcHomeDeviceId}}\",\n  \"metric\": \"POWER\",\n  \"time\": \"{{readingTime}}\",\n  \"value\": \"1150.5\",\n  \"unit\": \"W\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save TEMPERATURE reading",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeDeviceId\": \"{{amzAcHomeDeviceId}}\",\n  \"metric\": \"TEMPERATURE\",\n  \"time\": \"{{readingTime}}\",\n  \"value\": \"21.5\",\n  \"unit\": \"C\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save SWITCH reading",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeDeviceId\": \"{{amzAcHomeDeviceId}}\",\n  \"metric\": \"SWITCH\",\n  \"time\": \"{{readingTime}}\",\n  \"value\": \"ON\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save same POWER time again → 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ]
+            },
+            "description": "One reading per device, metric and time.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeDeviceId\": \"{{amzAcHomeDeviceId}}\",\n  \"metric\": \"POWER\",\n  \"time\": \"{{readingTime}}\",\n  \"value\": \"999\",\n  \"unit\": \"W\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POWER readings today (newest first)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings?homeDeviceId={{amzAcHomeDeviceId}}&metric=POWER&startDate={{startDate}}&endDate={{endDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ],
+              "query": [
+                {
+                  "key": "homeDeviceId",
+                  "value": "{{amzAcHomeDeviceId}}"
+                },
+                {
+                  "key": "metric",
+                  "value": "POWER"
+                },
+                {
+                  "key": "startDate",
+                  "value": "{{startDate}}"
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{endDate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "All readings today",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings?homeDeviceId={{amzAcHomeDeviceId}}&startDate={{startDate}}&endDate={{endDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ],
+              "query": [
+                {
+                  "key": "homeDeviceId",
+                  "value": "{{amzAcHomeDeviceId}}"
+                },
+                {
+                  "key": "startDate",
+                  "value": "{{startDate}}"
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{endDate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid range → 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/readings?homeDeviceId={{amzAcHomeDeviceId}}&startDate={{endDate}}&endDate={{startDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "readings"
+              ],
+              "query": [
+                {
+                  "key": "homeDeviceId",
+                  "value": "{{amzAcHomeDeviceId}}"
+                },
+                {
+                  "key": "startDate",
+                  "value": "{{endDate}}"
+                },
+                {
+                  "key": "endDate",
+                  "value": "{{startDate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date(); now.setUTCSeconds(0, 0);",
+                  "pm.collectionVariables.set(\"readingTime\", now.toISOString());",
+                  "const start = new Date(now); start.setUTCHours(0, 0, 0, 0);",
+                  "const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);",
+                  "pm.collectionVariables.set(\"startDate\", start.toISOString());",
+                  "pm.collectionVariables.set(\"endDate\", end.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -1303,6 +1720,18 @@
     },
     {
       "key": "cscDryerHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "readingTime",
+      "value": ""
+    },
+    {
+      "key": "startDate",
+      "value": ""
+    },
+    {
+      "key": "endDate",
       "value": ""
     }
   ]

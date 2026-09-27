@@ -50,7 +50,7 @@ No `@Data`, no public setters; behavior methods enforce invariants. Assign UUIDs
 - `metric_reading(id bigint identity, device_id uuid, metric_type varchar, value double precision, unit varchar,
   recorded_at timestamptz, collected_at timestamptz)`, `uk_metric_reading (device_id, metric_type, recorded_at)`,
   `ix_metric_reading_lookup (device_id, recorded_at)`.
-- No JPA relationship from `MetricReading` to `Device` (just `deviceId`) — avoids loading graphs on hot paths.
+- No JPA relationship from `DeviceReading` to `HomeDevice` (just `homeDeviceId`) — avoids loading graphs on hot paths.
 - Batch inserts: `hibernate.jdbc.batch_size: 50`, `order_inserts: true`; identity PK disables batching in Hibernate,
   so prefer a `SEQUENCE` with `allocationSize = 50` if volume matters.
 - Aggregations for reports via a JPQL/native **projection** query grouped by device + metric
