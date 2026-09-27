@@ -84,4 +84,22 @@ class DeviceReadingServiceTest {
 		then(repository).should().findInRange(HOME_DEVICE_ID, start, NOW);
 		then(repository).should().findInRange(HOME_DEVICE_ID, MetricType.POWER, start, NOW);
 	}
+
+	@Test
+	void shouldSaveOnlyNewReadings_andRecordTheRun() {
+		// given: POWER at 10:00 already stored
+		Instant from = Instant.parse("2026-09-27T10:00:00Z");
+		DeviceReading existing = DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, from, "1", "W", NOW);
+		given(repository.findInRange(HOME_DEVICE_ID, from, NOW)).willReturn(List.of(existing));
+		DeviceReading duplicate = DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, from, "2", "W", NOW);
+		DeviceReading fresh = DeviceReading.record(HOME_DEVICE_ID, MetricType.SWITCH, from, "ON", "on/off", NOW);
+
+		// when
+		int stored = service.saveCollected(HOME_DEVICE_ID, List.of(duplicate, fresh), from, NOW);
+
+		// then
+		assertThat(stored).isEqualTo(1);
+		then(repository).should().saveAll(List.of(fresh));
+		then(homeDeviceService).should().recordRun(HOME_DEVICE_ID, NOW);
+	}
 }

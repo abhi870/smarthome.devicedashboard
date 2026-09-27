@@ -7,7 +7,9 @@ import com.abhishek.smarthome.exception.InvalidTimeRangeException;
 import com.abhishek.smarthome.repository.DeviceReadingRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +37,28 @@ public class DeviceReadingService {
 		requireHomeDevice(command.getHomeDeviceId());
 		return repository.save(DeviceReading.record(command.getHomeDeviceId(), command.getMetric(), command.getTime(),
 				command.getValue(), command.getUnit(), clock.instant()));
+	}
+
+	/**
+	 * Stores the readings of one collection run and records the run on the home device, atomically. Readings that
+	 * already exist (same device, metric and time) are skipped, so re-collecting a period is harmless.
+	 *
+	 * @return the number of readings stored
+	 */
+	@Transactional
+	public int saveCollected(UUID homeDeviceId, List<DeviceReading> readings, Instant from, Instant runAt) {
+		Set<String> existing = new HashSet<>();
+		for (DeviceReading reading : repository.findInRange(homeDeviceId, from, runAt)) {
+			existing.add(key(reading));
+		}
+		List<DeviceReading> fresh = readings.stream().filter(reading -> existing.add(key(reading))).toList();
+		repository.saveAll(fresh);
+		homeDeviceService.recordRun(homeDeviceId, runAt);
+		return fresh.size();
+	}
+
+	private static String key(DeviceReading reading) {
+		return reading.getMetric() + "|" + reading.getTime();
 	}
 
 	/**

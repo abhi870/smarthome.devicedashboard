@@ -3,6 +3,10 @@ spring:
     name: devicedashboard
 
 smarthome:
+  collection:
+    enabled: ${COLLECTION_ENABLED:true}  # DeviceMetricFetchScheduler, ticks every second
+    batch-size: 50                     # devices per tick
+    retry-delay: 60s                   # after a failed vendor call (capped at the polling interval)
   vendors:
     samsung:
       base-url: ${SAMSUNG_BASE_URL:http://localhost:8081/api/v1/samsung}
