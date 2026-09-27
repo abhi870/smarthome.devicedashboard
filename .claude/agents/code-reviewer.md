@@ -39,7 +39,7 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 - Entities: no `@Data`/`@Setter`/Lombok `equals`, `@Version` on mutable aggregates, `EnumType.STRING`.
 - N+1 queries, unbounded `findAll`, loading rows to aggregate in memory, missing indexes for new queries.
 - Transactions at service layer; **vendor calls inside a DB transaction** is a blocker.
-- SQL portable across Postgres and H2 (or isolated in `domain/repository`); migrations never edited after being applied.
+- SQL portable across Postgres and H2 (or isolated in `repository`); migrations never edited after being applied.
 
 **Concurrency & resilience**
 - Shared mutable state in singletons, thread-safety of executors, unbounded queues, missing timeouts on vendor calls,
@@ -50,7 +50,7 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 - Logging: parameterized SLF4J, useful context, no noisy logs in hot loops.
 
 **Architecture** (CLAUDE.md §4)
-- Controller → repository shortcuts, `domain` depending on `api`/Spring Web, cross-feature repository access.
+- Controller → repository shortcuts, `entity`/`service`/`repository` depending on `controller`/Spring Web, classes in the wrong layer package (controller/dto/entity/enums/repository/service/exception).
 
 **Tests** (CLAUDE.md §7)
 - Changed behavior without tests; tests that don't assert the behavior; `Thread.sleep`; real time/randomness;

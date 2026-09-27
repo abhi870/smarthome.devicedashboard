@@ -12,8 +12,8 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 
 ## Step 0 — Understand before writing
 
-1. Parse the request into: resource, operations (list/get/create/update/delete/action), owning feature package.
-2. Read existing code in that feature and in `common/` (error handler, paging, Clock) — reuse, don't duplicate.
+1. Parse the request into: resource and operations (list/get/create/update/delete/action).
+2. Read existing code for that resource (controller/, service/, dto/) and in `common/` (error handler, paging, Clock) — reuse, don't duplicate.
 3. If the domain model/schema doesn't exist yet, do that first (use the `/db-change` skill approach).
 4. Write a short contract sketch before coding (method, path, request, response, status codes, errors).
    If anything is ambiguous, pick the convention from this skill and state the assumption in the summary.
@@ -36,16 +36,17 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 - Never expose entities, internal ids of vendors' secrets, or stack traces.
 - Filters are explicit query params (`type`, `vendor`, `room`, `enabled`), not a generic query language.
 
-## Step 2 — Files to create (feature `X`, resource `Foo`)
+## Step 2 — Files to create (resource `Foo`, package-by-layer)
 
 ```
-X/api/FooController.java
-X/api/dto/CreateFooRequest.java      // class + Jakarta validation
-X/api/dto/UpdateFooRequest.java      // class, all fields nullable for PATCH
-X/api/dto/FooResponse.java           // class + static from(Foo)
-X/domain/service/FooService.java     // @Service, @Transactional boundaries, business rules
-X/domain/exception/FooNotFoundException.java // extends common NotFoundException
-X/domain/repository/FooRepository.java // Spring Data (if not existing)
+controller/FooController.java
+dto/input/foo/CreateFooRequest.java  // class + Jakarta validation
+dto/input/foo/UpdateFooRequest.java  // class, all fields nullable for PATCH
+dto/output/foo/FooResponse.java      // class + static from(Foo)
+service/FooService.java              // @Service, @Transactional boundaries, business rules
+exception/FooNotFoundException.java  // extends common NotFoundException
+repository/FooRepository.java        // Spring Data (if not existing)
+entity/Foo.java, enums/FooStatus.java // if new
 common/api/PageResponse.java         // reuse if exists
 common/api/GlobalExceptionHandler.java // reuse; add mappings only if new exception types
 http/foo.http                        // sample requests

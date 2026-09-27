@@ -1,7 +1,7 @@
 package com.abhishek.smarthome.vendor.auth;
 
-import com.abhishek.smarthome.vendor.VendorCode;
-import com.abhishek.smarthome.vendor.config.AuthType;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.config.VendorConfigProvider;
 import com.abhishek.smarthome.vendor.config.VendorNotConfiguredException;
 import java.util.EnumMap;

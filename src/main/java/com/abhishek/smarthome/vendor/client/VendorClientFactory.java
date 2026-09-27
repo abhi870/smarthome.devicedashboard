@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.client;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.auth.VendorAuthRegistry;
 import com.abhishek.smarthome.vendor.config.VendorConfigProvider;
 import com.abhishek.smarthome.vendor.config.VendorNotConfiguredException;

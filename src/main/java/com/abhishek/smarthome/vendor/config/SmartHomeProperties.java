@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.config;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.VendorCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;

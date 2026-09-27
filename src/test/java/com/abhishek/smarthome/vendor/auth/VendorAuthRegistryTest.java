@@ -3,9 +3,9 @@ package com.abhishek.smarthome.vendor.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
-import com.abhishek.smarthome.vendor.config.AuthType;
 import com.abhishek.smarthome.vendor.config.SmartHomeProperties;
 import com.abhishek.smarthome.vendor.config.VendorConfigProvider;
 import com.abhishek.smarthome.vendor.config.VendorNotConfiguredException;

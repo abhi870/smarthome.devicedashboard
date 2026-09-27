@@ -2,7 +2,8 @@ package com.abhishek.smarthome.vendor.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import java.net.URI;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;

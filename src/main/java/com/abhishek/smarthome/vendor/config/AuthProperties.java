@@ -1,5 +1,6 @@
 package com.abhishek.smarthome.vendor.config;
 
+import com.abhishek.smarthome.enums.AuthType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.Nullable;

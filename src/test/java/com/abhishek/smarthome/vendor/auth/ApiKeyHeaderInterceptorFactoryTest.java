@@ -2,9 +2,9 @@ package com.abhishek.smarthome.vendor.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
-import com.abhishek.smarthome.vendor.config.AuthType;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.atomic.AtomicReference;

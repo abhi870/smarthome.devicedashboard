@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.config;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.VendorCode;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;

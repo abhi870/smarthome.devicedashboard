@@ -59,9 +59,9 @@ No `@Data`, no public setters; behavior methods enforce invariants. Assign UUIDs
 
 ## Repository rules
 
-- Spring Data interfaces in `<feature>/domain/repository/`; entities in `<feature>/domain/entity/`; derived queries for simple cases, `@Query` for the rest; projections as interfaces or classes (no records).
+- Spring Data interfaces in `repository/`; entities in `entity/`; enums in `enums/`; derived queries for simple cases, `@Query` for the rest; projections as interfaces or classes (no records).
 - List endpoints: `Page<T>` with bounded size; avoid N+1 (`@EntityGraph` or fetch join).
-- Postgres-only SQL (e.g. `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`) only behind a `domain/repository` class with an H2-safe alternative or a Testcontainers-only test.
+- Postgres-only SQL (e.g. `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`) only behind a `repository` class with an H2-safe alternative or a Testcontainers-only test.
 
 ## Tests
 

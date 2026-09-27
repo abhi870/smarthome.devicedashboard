@@ -7,10 +7,10 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.auth.VendorAuthRegistry;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
-import com.abhishek.smarthome.vendor.config.AuthType;
 import com.abhishek.smarthome.vendor.config.VendorProperties;
 import java.net.URI;
 import java.time.Duration;

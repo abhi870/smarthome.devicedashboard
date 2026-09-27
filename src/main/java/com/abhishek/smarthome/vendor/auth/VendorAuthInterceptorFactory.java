@@ -1,8 +1,8 @@
 package com.abhishek.smarthome.vendor.auth;
 
-import com.abhishek.smarthome.vendor.VendorCode;
+import com.abhishek.smarthome.enums.AuthType;
+import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
-import com.abhishek.smarthome.vendor.config.AuthType;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 
 /**
