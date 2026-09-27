@@ -63,7 +63,7 @@ com.abhishek.smarthome
 ├── vendor/        # Vendor entity + VendorService (api/ domain/) and vendor integration (outbound):
 │   ├── config/    # per-vendor @ConfigurationProperties + VendorConfigProvider
 │   ├── auth/      # pluggable outbound auth (API key header today), one factory per AuthType
-│   ├── client/    # VendorClientProvider (RestClient per vendor), VendorClientFactory, samsung/ amazon/ cisco/ clients
+│   ├── client/    # VendorClientFactory: one RestClient per vendor (base URL, timeouts, auth); per-vendor clients later
 │   └── (no adapters: vendor → canonical metric mapping is data, see MetricMapping on Device)
 ├── collection/    # scheduling + executing metric collection, CollectionRun audit
 ├── metrics/       # MetricType + Conversion (canonical metrics), DeviceReading history; /readings
@@ -124,11 +124,16 @@ Rules (enforce with an ArchUnit test once added):
 - **Vendor configuration**: `smarthome.vendors.<vendor>` → `base-url`, timeouts, `auth { type, name, prefix, api-key }`.
   `AuthType`: `API_KEY_HEADER` (header `name` = `prefix + api-key`; all vendors use this today).
   New auth schemes = new `VendorAuthInterceptorFactory` + config; no client changes. Secrets from env vars, never logged.
-- **VendorClient** (per vendor, built by `VendorClientFactory` from `VendorClientProvider`): `listDevices()` and
-  `fetchMetrics(deviceIds, from, to)` returning **raw per-minute samples** — `RawMetricSample(vendor, externalId,
-  timestamp, Map<String,Object> metrics, JsonNode raw)`. Clients parse only the envelope (device id, timestamp);
-  metric names/units/structure stay vendor-specific. Vendor failures surface as typed exceptions
-  (`VendorAuthException`, `VendorNotFoundException`, `VendorUnavailableException`, `VendorRateLimitedException`).
+- **VendorClientFactory** (`vendor.client`): at startup builds one `RestClient` per configured vendor from
+  `VendorConfigProvider` — `baseUrl`, JDK HttpClient with `connectTimeout`/`readTimeout`, auth interceptor from
+  `VendorAuthRegistry`. `clientFor(VendorCode)` returns the shared client (paths relative to the base URL, e.g.
+  `.get().uri("/devices")`); unknown vendor → `VendorNotConfiguredException`. Next: per-vendor clients on top of it
+  returning raw per-minute samples (`listDevices()`, `fetchMetrics(deviceIds, from, to)`).
+- **Paging** (`vendor.client`): vendors page differently (Samsung `page/size` + `page.totalPages`, Amazon
+  `maxResults/nextToken`, Cisco `since/limit` + `next_since`). A vendor client implements `PageFetcher<T>`
+  (`VendorPage<T> fetch(@Nullable String cursor)`; cursor = page number / token / epoch seconds, `null` = first page)
+  and `VendorPaginator.fetchAll(..)` or lazy `.stream(..)` follows `nextCursor` until `null`, with a max-pages guard
+  (default 100) and repeated-cursor detection (`VendorPaginationException`).
 - **Normalization** (later step): for each raw sample, look up the home device's catalogue `MetricMapping`s; mapped
   metrics are converted with `toCanonical(..)`, unmapped metrics are logged at debug and dropped.
 - **Mock vendor APIs** (served by `../vendors` at `http://localhost:8081/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth headers
