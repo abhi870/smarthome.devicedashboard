@@ -12,8 +12,9 @@ Content-Type: application/json
 ### 2. Admin: add a supported device model with its metric mappings
 #   deviceType: TV | REFRIGERATOR | AC | OVEN | WASHER | DRYER
 #   metric:     TEMPERATURE (C) | POWER (W) | ENERGY (kWh) | HUMIDITY (%) | RUNTIME (min) | DOOR_OPEN_COUNT | SWITCH (1 on / 0 off)
-#   conversion: NONE (default) | F_TO_C, K_TO_C (TEMPERATURE) | KW_TO_W (POWER) | WH_TO_KWH (ENERGY)
-#               | SECONDS_TO_MINUTES, HOURS_TO_MINUTES (RUNTIME) – any other combination is 400
+#   each mapping: preset  {externalMetric, metric, conversion?}  conversion = NONE (default) | F_TO_C | K_TO_C | KW_TO_W | WH_TO_KWH | SECONDS_TO_MINUTES | HOURS_TO_MINUTES
+#            or recipe  {externalMetric, metric, externalUnit, internalUnit (= metric unit), factor, offset, sample?{external, expected}}
+#   internal = external * factor + offset
 POST {{host}}/api/v1/smart-home/devices/register
 Content-Type: application/json
 
@@ -25,7 +26,8 @@ Content-Type: application/json
   "mappings": [
     { "externalMetric": "powerConsumption", "metric": "POWER", "conversion": "KW_TO_W" },
     { "externalMetric": "energyUsage", "metric": "ENERGY" },
-    { "externalMetric": "temperature", "metric": "TEMPERATURE", "conversion": "NONE" },
+    { "externalMetric": "temperature", "metric": "TEMPERATURE", "externalUnit": "C", "internalUnit": "C",
+      "factor": 1, "offset": 0, "sample": { "external": 21.5, "expected": 21.5 } },
     { "externalMetric": "powerState", "metric": "SWITCH" }
   ]
 }

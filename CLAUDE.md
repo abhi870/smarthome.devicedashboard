@@ -103,16 +103,18 @@ Rules (enforce with an ArchUnit test once added):
   register): `UUID id`, `@ManyToOne(LAZY)` `vendor`, `DeviceType` enum (`TV|REFRIGERATOR|AC|OVEN|WASHER|DRYER`),
   `model`, `name`, `metricMappings`, `createdAt`, `@Version`. Unique `(vendor_id, model)`. One device → many home devices.
 - **MetricMapping** (`@Embeddable` value object, `@ElementCollection` of Device, table `device_metric_mapping`, PK
-  `(device_id, external_metric)`): `externalMetric` (vendor name; dotted path for nested payloads) → `metric`
-  (`MetricType`) via `conversion` (`Conversion`, default `NONE`). Admin supplies them in `mappings[]` when adding a
-  device (at least one) and can replace the full set with `PUT /devices/{id}/mappings`. Rules (400 via
-  `InvalidMetricMappingException`): the conversion must produce the metric's unit (`Conversion.supports(metric)`;
-  `NONE` fits all) and an external metric is mapped at most once per device. This is how vendor-specific
-  names/units become canonical — no per-vendor mapping code.
-- **MetricType** (`metrics.domain`): `TEMPERATURE` (C), `POWER` (W), `ENERGY` (kWh), `HUMIDITY` (%), `RUNTIME` (min),
+  `(device_id, external_metric)`): the complete recipe for reading a vendor metric — `externalMetric` (vendor name;
+  dotted path for nested payloads) in `externalUnit` → `metric` (`MetricType`) in `internalUnit` via
+  `internal = external × factor + offset` (`factor`/`offset` are `NUMERIC(30,15)` / `BigDecimal`, column
+  `value_offset`). Admin sends either the recipe or a `conversion` preset (`Conversion` enum only fills the recipe;
+  mixing both → 400); neither = identity. Rules (400 via `InvalidMetricMappingException`): `internalUnit` must equal
+  `metric.unit()` (so readings of one metric are comparable across vendors), `factor != 0`, SWITCH is identity,
+  optional `sample {external, expected}` must convert within `0.01 + 1e-4·|expected|`, an external metric is mapped
+  at most once per device. Replace the full set with `PUT /devices/{id}/mappings`. Adding a vendor/unit = data only.
+- **MetricType** (`metrics.domain`, defines each metric's canonical/internal unit): `TEMPERATURE` (C), `POWER` (W), `ENERGY` (kWh), `HUMIDITY` (%), `RUNTIME` (min),
   `DOOR_OPEN_COUNT`, `SWITCH` (on/off stored as 1/0; text like `on`/`OFF`/`ACTIVE`/`IDLE` parsed by `SwitchState`,
   conversion `NONE`); each has one canonical `unit()`. **Conversion**: `NONE|F_TO_C|K_TO_C|KW_TO_W|WH_TO_KWH|
-  SECONDS_TO_MINUTES|HOURS_TO_MINUTES`, `apply(double)`. New unit = new enum constant.
+  SECONDS_TO_MINUTES|HOURS_TO_MINUTES`, presets only (`externalUnit`, `factor`, `offset`). New unit = a mapping with its own factor/offset, no code.
 - **HomeDevice** (entity, table `home_device`; the physical appliance a user registered): `UUID id`,
   `@ManyToOne(LAZY)` `home` and `device` (HomeDevice owns both FKs; vendor is `device.vendor`), `externalDeviceId`
   (id at the vendor), `name`, `pollingIntervalSeconds` (default 300), `enabled`, `nextPollAt` (= registration time →

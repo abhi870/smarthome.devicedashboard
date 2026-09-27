@@ -1,22 +1,32 @@
 package com.abhishek.smarthome.device.api.dto;
 
 import com.abhishek.smarthome.device.domain.entity.MetricMapping;
-import com.abhishek.smarthome.metrics.domain.entity.Conversion;
 import com.abhishek.smarthome.metrics.domain.entity.MetricType;
+import java.math.BigDecimal;
 
-/** A metric mapping of a catalogue device, plus the canonical unit the converted value is in. */
+/** A stored mapping: the full recipe {@code internal = external × factor + offset}. */
 public final class MetricMappingResponse {
 
 	private final String externalMetric;
 	private final MetricType metric;
-	private final Conversion conversion;
-	private final String unit;
+	private final String externalUnit;
+	private final String internalUnit;
+	private final BigDecimal factor;
+	private final BigDecimal offset;
 
 	private MetricMappingResponse(MetricMapping mapping) {
 		this.externalMetric = mapping.getExternalMetric();
 		this.metric = mapping.getMetric();
-		this.conversion = mapping.getConversion();
-		this.unit = mapping.getMetric().unit();
+		this.externalUnit = mapping.getExternalUnit();
+		this.internalUnit = mapping.getInternalUnit();
+		this.factor = plain(mapping.getFactor());
+		this.offset = plain(mapping.getOffset());
+	}
+
+	/** 1000.000000000000000 → 1000, 0.001000000000000 → 0.001 (never 1E+3). */
+	private static BigDecimal plain(BigDecimal value) {
+		BigDecimal stripped = value.stripTrailingZeros();
+		return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
 	}
 
 	public static MetricMappingResponse from(MetricMapping mapping) {
@@ -31,11 +41,19 @@ public final class MetricMappingResponse {
 		return metric;
 	}
 
-	public Conversion getConversion() {
-		return conversion;
+	public String getExternalUnit() {
+		return externalUnit;
 	}
 
-	public String getUnit() {
-		return unit;
+	public String getInternalUnit() {
+		return internalUnit;
+	}
+
+	public BigDecimal getFactor() {
+		return factor;
+	}
+
+	public BigDecimal getOffset() {
+		return offset;
 	}
 }

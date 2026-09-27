@@ -45,8 +45,8 @@ class DeviceControllerTest {
 
 	private final Vendor amazon = Vendor.register(VendorCode.AMAZON, "Amazon", NOW);
 	private final List<MetricMapping> mappings = List.of(
-			new MetricMapping("room_temp_f", MetricType.TEMPERATURE, Conversion.F_TO_C),
-			new MetricMapping("pwr_kw", MetricType.POWER, Conversion.KW_TO_W));
+			MetricMapping.of("room_temp_f", MetricType.TEMPERATURE, Conversion.F_TO_C),
+			MetricMapping.of("pwr_kw", MetricType.POWER, Conversion.KW_TO_W));
 
 	private String body(String mappingsJson) {
 		return """
@@ -69,16 +69,17 @@ class DeviceControllerTest {
 		response.hasStatus(HttpStatus.CREATED).hasHeader("Location", "http://localhost" + BASE + "/" + device.getId());
 		response.bodyJson().extractingPath("$.vendorCode").isEqualTo("AMAZON");
 		response.bodyJson().extractingPath("$.mappings[0].externalMetric").isEqualTo("room_temp_f");
-		response.bodyJson().extractingPath("$.mappings[0].unit").isEqualTo("C");
-		response.bodyJson().extractingPath("$.mappings[1].conversion").isEqualTo("KW_TO_W");
-		response.bodyJson().extractingPath("$.mappings[1].unit").isEqualTo("W");
+		response.bodyJson().extractingPath("$.mappings[0].externalUnit").isEqualTo("F");
+		response.bodyJson().extractingPath("$.mappings[0].internalUnit").isEqualTo("C");
+		response.bodyJson().extractingPath("$.mappings[1].factor").isEqualTo(1000);
+		response.bodyJson().extractingPath("$.mappings[1].internalUnit").isEqualTo("W");
 	}
 
 	@Test
 	void shouldDefaultConversionToNone_whenOmitted() {
 		// given
 		given(service.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
-				List.of(new MetricMapping("temperature", MetricType.TEMPERATURE, Conversion.NONE)), NOW));
+				List.of(MetricMapping.of("temperature", MetricType.TEMPERATURE, Conversion.NONE)), NOW));
 
 		// when
 		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON)
@@ -89,7 +90,11 @@ class DeviceControllerTest {
 		ArgumentCaptor<RegisterDeviceCommand> command = ArgumentCaptor.forClass(RegisterDeviceCommand.class);
 		then(service).should().register(command.capture());
 		assertThat(command.getValue().getMetricMappings()).singleElement()
-				.satisfies(mapping -> assertThat(mapping.getConversion()).isEqualTo(Conversion.NONE));
+				.satisfies(mapping -> {
+					assertThat(mapping.getFactor()).isEqualByComparingTo("1");
+					assertThat(mapping.getOffset()).isEqualByComparingTo("0");
+					assertThat(mapping.getExternalUnit()).isEqualTo("C");
+				});
 	}
 
 	@Test
@@ -115,6 +120,54 @@ class DeviceControllerTest {
 	}
 
 	@Test
+	void shouldStoreExplicitRecipe_andCheckSample() {
+		// given
+		given(service.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
+				mappings, NOW));
+		String recipe = """
+				[{"externalMetric":"p_mw","metric":"POWER","externalUnit":"mW","internalUnit":"W","factor":0.001,
+				  "offset":0,"sample":{"external":1150000,"expected":1150}}]""";
+
+		// when
+		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body(recipe)))
+				.hasStatus(HttpStatus.CREATED);
+
+		// then
+		ArgumentCaptor<RegisterDeviceCommand> command = ArgumentCaptor.forClass(RegisterDeviceCommand.class);
+		then(service).should().register(command.capture());
+		assertThat(command.getValue().getMetricMappings()).singleElement().satisfies(mapping -> {
+			assertThat(mapping.getExternalUnit()).isEqualTo("mW");
+			assertThat(mapping.getFactor()).isEqualByComparingTo("0.001");
+		});
+	}
+
+	@Test
+	void shouldReturn400_whenInternalUnitIsNotTheMetricUnit() {
+		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("""
+				[{"externalMetric":"pwr_kw","metric":"POWER","externalUnit":"kW","internalUnit":"kW","factor":1}]""")))
+				.hasStatus(HttpStatus.BAD_REQUEST)
+				.bodyJson().extractingPath("$.detail").asString().contains("must be 'W' for metric POWER");
+		then(service).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void shouldReturn400_whenSampleCheckFails() {
+		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("""
+				[{"externalMetric":"e_wh","metric":"ENERGY","externalUnit":"Wh","factor":1000,
+				  "sample":{"external":1500,"expected":1.5}}]""")))
+				.hasStatus(HttpStatus.BAD_REQUEST)
+				.bodyJson().extractingPath("$.detail").asString().contains("Sample check failed");
+	}
+
+	@Test
+	void shouldReturn400_whenPresetMixedWithExplicitFactor() {
+		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("""
+				[{"externalMetric":"t","metric":"TEMPERATURE","conversion":"F_TO_C","factor":2}]""")))
+				.hasStatus(HttpStatus.BAD_REQUEST)
+				.bodyJson().extractingPath("$.detail").asString().contains("not both");
+	}
+
+	@Test
 	void shouldReturn400_whenConversionDoesNotMatchMetric() {
 		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON)
 				.content(body("[{\"externalMetric\":\"t\",\"metric\":\"TEMPERATURE\",\"conversion\":\"KW_TO_W\"}]")))
@@ -128,7 +181,7 @@ class DeviceControllerTest {
 	void shouldReplaceMappings_whenPut() {
 		// given
 		Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW);
-		device.replaceMetricMappings(List.of(new MetricMapping("powerState", MetricType.SWITCH, Conversion.NONE)));
+		device.replaceMetricMappings(List.of(MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE)));
 		given(service.replaceMetricMappings(eq(device.getId()), any())).willReturn(device);
 
 		// when
@@ -139,7 +192,7 @@ class DeviceControllerTest {
 		response.hasStatusOk();
 		response.bodyJson().extractingPath("$.mappings.length()").isEqualTo(1);
 		response.bodyJson().extractingPath("$.mappings[0].metric").isEqualTo("SWITCH");
-		response.bodyJson().extractingPath("$.mappings[0].unit").isEqualTo("on/off");
+		response.bodyJson().extractingPath("$.mappings[0].internalUnit").isEqualTo("on/off");
 	}
 
 	@Test

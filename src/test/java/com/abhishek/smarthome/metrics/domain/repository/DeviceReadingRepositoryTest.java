@@ -52,7 +52,7 @@ class DeviceReadingRepositoryTest {
 	void setUp() {
 		Vendor vendor = vendors.saveAndFlush(Vendor.register(VendorCode.CISCO, "Cisco", T0));
 		Device device = devices.saveAndFlush(Device.register(vendor, DeviceType.OVEN, "CS-OV20", "Cisco Oven",
-				List.of(new MetricMapping("pwr_w", MetricType.POWER, Conversion.NONE)), T0));
+				List.of(MetricMapping.of("pwr_w", MetricType.POWER, Conversion.NONE)), T0));
 		Home home = homes.saveAndFlush(Home.register("My home", "UTC", T0));
 		homeDeviceId = homeDevices.saveAndFlush(HomeDevice.register(home, device, "csc-oven-01", "Oven", 60, T0))
 				.getId();
