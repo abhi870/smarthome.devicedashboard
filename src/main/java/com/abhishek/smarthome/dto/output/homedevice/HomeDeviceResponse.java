@@ -21,8 +21,8 @@ public final class HomeDeviceResponse {
 	private final String name;
 	private final int pollingIntervalSeconds;
 	private final boolean enabled;
-	private final Instant nextPollAt;
-	private final @Nullable Instant lastPolledAt;
+	private final Instant nextRunAt;
+	private final @Nullable Instant lastRunAt;
 	private final Instant createdAt;
 	private final Instant updatedAt;
 	private final long version;
@@ -39,8 +39,8 @@ public final class HomeDeviceResponse {
 		this.name = hd.getName();
 		this.pollingIntervalSeconds = hd.getPollingIntervalSeconds();
 		this.enabled = hd.isEnabled();
-		this.nextPollAt = hd.getNextPollAt();
-		this.lastPolledAt = hd.getLastPolledAt();
+		this.nextRunAt = hd.getNextRunAt();
+		this.lastRunAt = hd.getLastRunAt();
 		this.createdAt = hd.getCreatedAt();
 		this.updatedAt = hd.getUpdatedAt();
 		this.version = hd.getVersion();
@@ -90,12 +90,12 @@ public final class HomeDeviceResponse {
 		return enabled;
 	}
 
-	public Instant getNextPollAt() {
-		return nextPollAt;
+	public Instant getNextRunAt() {
+		return nextRunAt;
 	}
 
-	public @Nullable Instant getLastPolledAt() {
-		return lastPolledAt;
+	public @Nullable Instant getLastRunAt() {
+		return lastRunAt;
 	}
 
 	public Instant getCreatedAt() {

@@ -1,5 +1,6 @@
 package com.abhishek.smarthome.controller;
 
+import com.abhishek.smarthome.dto.input.homedevice.ChangePollingIntervalRequest;
 import com.abhishek.smarthome.dto.input.homedevice.RegisterHomeDeviceRequest;
 import com.abhishek.smarthome.dto.output.homedevice.HomeDeviceResponse;
 import com.abhishek.smarthome.service.HomeDeviceService;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,6 +37,13 @@ class HomeDeviceController {
 		HomeDeviceResponse created = HomeDeviceResponse.from(service.register(request.toCommand()));
 		URI location = uriBuilder.path("/api/v1/smart-home/home-devices/{id}").build(created.getId());
 		return ResponseEntity.created(location).body(created);
+	}
+
+	/** Changes how often metrics are collected; the response shows the recomputed {@code nextRunAt}. */
+	@PutMapping("/{id}/polling-interval")
+	HomeDeviceResponse changePollingInterval(@PathVariable UUID id,
+			@Valid @RequestBody ChangePollingIntervalRequest request) {
+		return HomeDeviceResponse.from(service.changePollingInterval(id, request.getPollingIntervalSeconds()));
 	}
 
 	/** Registered home devices, optionally filtered by home. */

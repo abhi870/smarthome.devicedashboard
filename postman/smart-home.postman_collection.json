@@ -1228,6 +1228,53 @@
               }
             }
           ]
+        },
+        {
+          "name": "Change polling interval (Bedroom AC → 15 min)",
+          "request": {
+            "method": "PUT",
+            "description": "Reschedules nextRunAt to max(now, lastRunAt + interval). Allowed 60–86400 seconds.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pollingIntervalSeconds\": 900\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/{{amzAcHomeDeviceId}}/polling-interval",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "{{amzAcHomeDeviceId}}",
+                "polling-interval"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

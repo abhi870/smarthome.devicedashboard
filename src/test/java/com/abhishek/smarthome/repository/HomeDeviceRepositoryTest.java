@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Limit;
 
 /** Relationships and constraints of vendor → device (catalogue) → home device ← home. */
 @DataJpaTest
@@ -139,5 +140,26 @@ class HomeDeviceRepositoryTest {
 		assertThatThrownBy(() -> devices
 				.saveAndFlush(Device.register(vendor, DeviceType.REFRIGERATOR, "SS-RF-1", "Duplicate", List.of(), NOW)))
 				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void shouldFindDueDevices_mostOverdueFirst_andSkipFutureOnes() {
+		// given: registered at NOW (due at NOW); one ran at NOW (next NOW+60), one registered later
+		HomeDevice dueFirst = homeDevices.saveAndFlush(
+				HomeDevice.register(home, device, "ss-rf-01", "A", 60, NOW.minusSeconds(120)));
+		HomeDevice dueSecond = homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "B", 60, NOW));
+		HomeDevice notDue = HomeDevice.register(home, device, "ss-rf-03", "C", 60, NOW);
+		notDue.markRun(NOW);
+		homeDevices.saveAndFlush(notDue);
+		em.clear();
+
+		// when
+		List<HomeDevice> due = homeDevices.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW,
+				Limit.of(10));
+
+		// then
+		assertThat(due).extracting(HomeDevice::getId).containsExactly(dueFirst.getId(), dueSecond.getId());
+		assertThat(homeDevices.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(1)))
+				.hasSize(1);
 	}
 }

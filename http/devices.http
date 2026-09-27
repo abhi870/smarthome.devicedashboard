@@ -89,6 +89,12 @@ GET {{host}}/api/v1/smart-home/devices/{{deviceId}}
 ###
 GET {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}
 
+### Change a home device's polling interval (60-86400 s); response shows the recomputed nextRunAt
+PUT {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}/polling-interval
+Content-Type: application/json
+
+{"pollingIntervalSeconds": 900}
+
 ### Lists: what's already there
 GET {{host}}/api/v1/smart-home/vendors
 

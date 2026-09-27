@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Limit;
 
 class HomeDeviceServiceTest {
 
@@ -56,8 +57,8 @@ class HomeDeviceServiceTest {
 		assertThat(registered.getExternalDeviceId()).isEqualTo("cs-tv-01");
 		assertThat(registered.getPollingIntervalSeconds()).isEqualTo(120);
 		assertThat(registered.isEnabled()).isTrue();
-		assertThat(registered.getNextPollAt()).isEqualTo(NOW);
-		assertThat(registered.getLastPolledAt()).isNull();
+		assertThat(registered.getNextRunAt()).isEqualTo(NOW);
+		assertThat(registered.getLastRunAt()).isNull();
 		assertThat(registered.getCreatedAt()).isEqualTo(NOW);
 		assertThat(registered.getUpdatedAt()).isEqualTo(NOW);
 	}
@@ -83,5 +84,33 @@ class HomeDeviceServiceTest {
 
 		// when / then
 		assertThatThrownBy(() -> service.get(id)).isInstanceOf(HomeDeviceNotFoundException.class);
+	}
+
+	@Test
+	void shouldChangePollingInterval_andRescheduleNextRun() {
+		// given: last run 10 minutes ago with a 1-hour interval
+		HomeDevice homeDevice = HomeDevice.register(home, device, "cs-tv-01", "TV", 3600, NOW.minusSeconds(3600));
+		homeDevice.markRun(NOW.minusSeconds(600));
+		given(repository.findWithDeviceById(homeDevice.getId())).willReturn(Optional.of(homeDevice));
+
+		// when: 5 minutes -> next run is already past, so it is due now
+		HomeDevice changed = service.changePollingInterval(homeDevice.getId(), 300);
+
+		// then
+		assertThat(changed.getPollingIntervalSeconds()).isEqualTo(300);
+		assertThat(changed.getNextRunAt()).isEqualTo(NOW);
+	}
+
+	@Test
+	void shouldFindDueDevicesAtClockTime() {
+		// given
+		given(repository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50)))
+				.willReturn(List.of());
+
+		// when
+		service.findDue(50);
+
+		// then
+		then(repository).should().findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50));
 	}
 }

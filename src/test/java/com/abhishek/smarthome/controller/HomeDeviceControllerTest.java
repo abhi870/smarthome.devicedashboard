@@ -16,6 +16,7 @@ import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.exception.DeviceNotFoundException;
 import com.abhishek.smarthome.exception.HomeDeviceNotFoundException;
+import com.abhishek.smarthome.exception.InvalidPollingIntervalException;
 import com.abhishek.smarthome.service.HomeDeviceService;
 import java.time.Instant;
 import java.util.List;
@@ -129,5 +130,33 @@ class HomeDeviceControllerTest {
 
 		// when / then
 		assertThat(mvc.get().uri(BASE)).hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(0);
+	}
+
+	@Test
+	void shouldChangePollingInterval_andReturnNextRunAt() {
+		// given
+		HomeDevice homeDevice = HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW);
+		homeDevice.changePollingInterval(900, NOW);
+		given(service.changePollingInterval(homeDevice.getId(), 900)).willReturn(homeDevice);
+
+		// when / then
+		var response = assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", homeDevice.getId())
+				.contentType(APPLICATION_JSON).content("{\"pollingIntervalSeconds\":900}"));
+		response.hasStatusOk();
+		response.bodyJson().extractingPath("$.pollingIntervalSeconds").isEqualTo(900);
+		response.bodyJson().extractingPath("$.nextRunAt").isEqualTo("2026-09-27T10:00:00Z");
+	}
+
+	@Test
+	void shouldReturn400_whenPollingIntervalOutOfRangeOrMissing() {
+		// given
+		UUID id = UUID.randomUUID();
+		given(service.changePollingInterval(id, 10)).willThrow(new InvalidPollingIntervalException(10, 60, 86_400));
+
+		// when / then
+		assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", id).contentType(APPLICATION_JSON)
+				.content("{\"pollingIntervalSeconds\":10}")).hasStatus(HttpStatus.BAD_REQUEST);
+		assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", id).contentType(APPLICATION_JSON).content("{}"))
+				.hasStatus(HttpStatus.BAD_REQUEST);
 	}
 }
