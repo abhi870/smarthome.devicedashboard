@@ -7,8 +7,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
+import lombok.Getter;
 
 /** Body of {@code PUT /api/v1/smart-home/devices/{id}/mappings}: the complete new set of mappings. */
+@Getter
 public final class UpdateMetricMappingsRequest {
 
 	@NotEmpty
@@ -21,9 +23,5 @@ public final class UpdateMetricMappingsRequest {
 
 	public List<MetricMapping> toMappings() {
 		return mappings.stream().map(MetricMappingRequest::toMapping).toList();
-	}
-
-	public List<MetricMappingRequest> getMappings() {
-		return mappings;
 	}
 }

@@ -41,7 +41,7 @@ class DeviceControllerTest {
 	MockMvcTester mvc;
 
 	@MockitoBean
-	DeviceCatalogService service;
+	DeviceCatalogService deviceCatalogService;
 
 	private final Vendor amazon = Vendor.register(VendorCode.AMAZON, "Amazon", NOW);
 	private final List<MetricMapping> mappings = List.of(
@@ -58,7 +58,7 @@ class DeviceControllerTest {
 	void shouldReturn201WithMappings_whenRegistered() {
 		// given
 		Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW);
-		given(service.register(any())).willReturn(device);
+		given(deviceCatalogService.register(any())).willReturn(device);
 
 		// when
 		var response = assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("""
@@ -78,7 +78,7 @@ class DeviceControllerTest {
 	@Test
 	void shouldDefaultConversionToNone_whenOmitted() {
 		// given
-		given(service.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
+		given(deviceCatalogService.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
 				List.of(MetricMapping.of("temperature", MetricType.TEMPERATURE, Conversion.NONE)), NOW));
 
 		// when
@@ -88,7 +88,7 @@ class DeviceControllerTest {
 
 		// then
 		ArgumentCaptor<RegisterDeviceCommand> command = ArgumentCaptor.forClass(RegisterDeviceCommand.class);
-		then(service).should().register(command.capture());
+		then(deviceCatalogService).should().register(command.capture());
 		assertThat(command.getValue().getMetricMappings()).singleElement()
 				.satisfies(mapping -> {
 					assertThat(mapping.getFactor()).isEqualByComparingTo("1");
@@ -122,7 +122,7 @@ class DeviceControllerTest {
 	@Test
 	void shouldStoreExplicitRecipe_andCheckSample() {
 		// given
-		given(service.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
+		given(deviceCatalogService.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
 				mappings, NOW));
 		String recipe = """
 				[{"externalMetric":"p_mw","metric":"POWER","externalUnit":"mW","internalUnit":"W","factor":0.001,
@@ -134,7 +134,7 @@ class DeviceControllerTest {
 
 		// then
 		ArgumentCaptor<RegisterDeviceCommand> command = ArgumentCaptor.forClass(RegisterDeviceCommand.class);
-		then(service).should().register(command.capture());
+		then(deviceCatalogService).should().register(command.capture());
 		assertThat(command.getValue().getMetricMappings()).singleElement().satisfies(mapping -> {
 			assertThat(mapping.getExternalUnit()).isEqualTo("mW");
 			assertThat(mapping.getFactor()).isEqualByComparingTo("0.001");
@@ -147,7 +147,7 @@ class DeviceControllerTest {
 				[{"externalMetric":"pwr_kw","metric":"POWER","externalUnit":"kW","internalUnit":"kW","factor":1}]""")))
 				.hasStatus(HttpStatus.BAD_REQUEST)
 				.bodyJson().extractingPath("$.detail").asString().contains("must be 'W' for metric POWER");
-		then(service).shouldHaveNoInteractions();
+		then(deviceCatalogService).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -174,7 +174,7 @@ class DeviceControllerTest {
 				.hasStatus(HttpStatus.BAD_REQUEST)
 				.bodyJson().extractingPath("$.detail")
 				.isEqualTo("Conversion KW_TO_W cannot be used for metric TEMPERATURE of 't'");
-		then(service).shouldHaveNoInteractions();
+		then(deviceCatalogService).shouldHaveNoInteractions();
 	}
 
 	@Test
@@ -182,7 +182,7 @@ class DeviceControllerTest {
 		// given
 		Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW);
 		device.replaceMetricMappings(List.of(MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE)));
-		given(service.replaceMetricMappings(eq(device.getId()), any())).willReturn(device);
+		given(deviceCatalogService.replaceMetricMappings(eq(device.getId()), any())).willReturn(device);
 
 		// when
 		var response = assertThat(mvc.put().uri(BASE + "/{id}/mappings", device.getId()).contentType(APPLICATION_JSON)
@@ -206,7 +206,7 @@ class DeviceControllerTest {
 	void shouldReturn404_whenPutMappingsForUnknownDevice() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.replaceMetricMappings(eq(id), any())).willThrow(new DeviceNotFoundException(id));
+		given(deviceCatalogService.replaceMetricMappings(eq(id), any())).willThrow(new DeviceNotFoundException(id));
 
 		// when / then
 		assertThat(mvc.put().uri(BASE + "/{id}/mappings", id).contentType(APPLICATION_JSON)
@@ -217,7 +217,7 @@ class DeviceControllerTest {
 	@Test
 	void shouldListDevices_filteredByVendorAndType() {
 		// given
-		given(service.list(amazon.getId(), DeviceType.AC))
+		given(deviceCatalogService.list(amazon.getId(), DeviceType.AC))
 				.willReturn(List.of(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW)));
 
 		// when / then
@@ -230,7 +230,7 @@ class DeviceControllerTest {
 	void shouldReturn404_whenDeviceUnknown() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.get(id)).willThrow(new DeviceNotFoundException(id));
+		given(deviceCatalogService.get(id)).willThrow(new DeviceNotFoundException(id));
 
 		// when / then
 		assertThat(mvc.get().uri(BASE + "/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);

@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DeviceReadingService {
 
-	private final DeviceReadingRepository repository;
+	private final DeviceReadingRepository deviceReadingRepository;
 	private final HomeDeviceService homeDeviceService;
 	private final Clock clock;
 
@@ -35,7 +35,7 @@ public class DeviceReadingService {
 	@Transactional
 	public DeviceReading save(SaveDeviceReadingCommand command) {
 		requireHomeDevice(command.getHomeDeviceId());
-		return repository.save(DeviceReading.record(command.getHomeDeviceId(), command.getMetric(), command.getTime(),
+		return deviceReadingRepository.save(DeviceReading.record(command.getHomeDeviceId(), command.getMetric(), command.getTime(),
 				command.getValue(), command.getUnit(), clock.instant()));
 	}
 
@@ -48,11 +48,11 @@ public class DeviceReadingService {
 	@Transactional
 	public int saveCollected(UUID homeDeviceId, List<DeviceReading> readings, Instant from, Instant runAt) {
 		Set<String> existing = new HashSet<>();
-		for (DeviceReading reading : repository.findInRange(homeDeviceId, from, runAt)) {
+		for (DeviceReading reading : deviceReadingRepository.findInRange(homeDeviceId, from, runAt)) {
 			existing.add(key(reading));
 		}
 		List<DeviceReading> fresh = readings.stream().filter(reading -> existing.add(key(reading))).toList();
-		repository.saveAll(fresh);
+		deviceReadingRepository.saveAll(fresh);
 		homeDeviceService.recordRun(homeDeviceId, runAt);
 		return fresh.size();
 	}
@@ -73,8 +73,8 @@ public class DeviceReadingService {
 			throw new InvalidTimeRangeException(start, end);
 		}
 		requireHomeDevice(homeDeviceId);
-		return metric == null ? repository.findInRange(homeDeviceId, start, end)
-				: repository.findInRange(homeDeviceId, metric, start, end);
+		return metric == null ? deviceReadingRepository.findInRange(homeDeviceId, start, end)
+				: deviceReadingRepository.findInRange(homeDeviceId, metric, start, end);
 	}
 
 	private void requireHomeDevice(UUID homeDeviceId) {

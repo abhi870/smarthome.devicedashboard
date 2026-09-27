@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -16,6 +17,7 @@ import org.jspecify.annotations.Nullable;
  * {@code {"homeDeviceId":"…","metric":"POWER","time":"2026-09-27T10:05:00Z","value":"1150.5","unit":"W"}} or
  * {@code {…,"metric":"SWITCH","value":"ON"}}. {@code unit} is optional and defaults to the metric's canonical unit.
  */
+@Getter
 public final class SaveDeviceReadingRequest {
 
 	@NotNull
@@ -46,27 +48,7 @@ public final class SaveDeviceReadingRequest {
 	}
 
 	public SaveDeviceReadingCommand toCommand() {
-		String effectiveUnit = unit == null || unit.isBlank() ? metric.unit() : unit.trim();
+		String effectiveUnit = unit == null || unit.isBlank() ? metric.getUnit() : unit.trim();
 		return new SaveDeviceReadingCommand(homeDeviceId, metric, time, value.trim(), effectiveUnit);
-	}
-
-	public UUID getHomeDeviceId() {
-		return homeDeviceId;
-	}
-
-	public MetricType getMetric() {
-		return metric;
-	}
-
-	public Instant getTime() {
-		return time;
-	}
-
-	public String getValue() {
-		return value;
-	}
-
-	public @Nullable String getUnit() {
-		return unit;
 	}
 }

@@ -6,9 +6,11 @@ import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /** A device registered in a home, with the catalogue model and vendor it belongs to. */
+@Getter
 public final class HomeDeviceResponse {
 
 	private final UUID id;
@@ -48,65 +50,5 @@ public final class HomeDeviceResponse {
 
 	public static HomeDeviceResponse from(HomeDevice homeDevice) {
 		return new HomeDeviceResponse(homeDevice);
-	}
-
-	public UUID getId() {
-		return id;
-	}
-
-	public UUID getHomeId() {
-		return homeId;
-	}
-
-	public UUID getDeviceId() {
-		return deviceId;
-	}
-
-	public VendorCode getVendorCode() {
-		return vendorCode;
-	}
-
-	public DeviceType getDeviceType() {
-		return deviceType;
-	}
-
-	public String getModel() {
-		return model;
-	}
-
-	public String getExternalDeviceId() {
-		return externalDeviceId;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public int getPollingIntervalSeconds() {
-		return pollingIntervalSeconds;
-	}
-
-	public boolean isEnabled() {
-		return enabled;
-	}
-
-	public Instant getNextRunAt() {
-		return nextRunAt;
-	}
-
-	public @Nullable Instant getLastRunAt() {
-		return lastRunAt;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
-	}
-
-	public Instant getUpdatedAt() {
-		return updatedAt;
-	}
-
-	public long getVersion() {
-		return version;
 	}
 }

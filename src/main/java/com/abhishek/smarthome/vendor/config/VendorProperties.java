@@ -5,9 +5,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.time.Duration;
+import lombok.Getter;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /** Connection settings for one vendor's API. */
+@Getter
 public final class VendorProperties {
 
 	/** Vendor API root; client paths are resolved relative to it. */
@@ -31,22 +33,6 @@ public final class VendorProperties {
 		this.connectTimeout = connectTimeout;
 		this.readTimeout = readTimeout;
 		this.auth = auth;
-	}
-
-	public URI getBaseUrl() {
-		return baseUrl;
-	}
-
-	public Duration getConnectTimeout() {
-		return connectTimeout;
-	}
-
-	public Duration getReadTimeout() {
-		return readTimeout;
-	}
-
-	public AuthProperties getAuth() {
-		return auth;
 	}
 
 	@Override

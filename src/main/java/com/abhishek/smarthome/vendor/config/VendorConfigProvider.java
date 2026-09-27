@@ -16,9 +16,9 @@ public class VendorConfigProvider {
 
 	private final Map<VendorCode, VendorProperties> vendors;
 
-	public VendorConfigProvider(SmartHomeProperties properties) {
+	public VendorConfigProvider(SmartHomeProperties smartHomeProperties) {
 		Map<VendorCode, VendorProperties> copy = new EnumMap<>(VendorCode.class);
-		copy.putAll(properties.getVendors());
+		copy.putAll(smartHomeProperties.getVendors());
 		this.vendors = Collections.unmodifiableMap(copy);
 	}
 

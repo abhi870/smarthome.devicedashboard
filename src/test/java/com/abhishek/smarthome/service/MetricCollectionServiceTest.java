@@ -35,11 +35,11 @@ class MetricCollectionServiceTest {
 	private static final Duration RETRY = Duration.ofSeconds(60);
 
 	private final HomeDeviceService homeDeviceService = mock(HomeDeviceService.class);
-	private final VendorAdapterRegistry adapters = mock(VendorAdapterRegistry.class);
-	private final VendorAdapter amazon = mock(VendorAdapter.class);
-	private final DeviceReadingService readingService = mock(DeviceReadingService.class);
-	private final MetricCollectionService service = new MetricCollectionService(homeDeviceService, adapters,
-			new DeviceReadingConverter(), readingService, Clock.fixed(NOW, ZoneOffset.UTC));
+	private final VendorAdapterRegistry vendorAdapterRegistry = mock(VendorAdapterRegistry.class);
+	private final VendorAdapter amazonVendorAdapter = mock(VendorAdapter.class);
+	private final DeviceReadingService deviceReadingService = mock(DeviceReadingService.class);
+	private final MetricCollectionService metricCollectionService = new MetricCollectionService(homeDeviceService, vendorAdapterRegistry,
+			new DeviceReadingConverter(), deviceReadingService, Clock.fixed(NOW, ZoneOffset.UTC));
 
 	private final List<MetricMapping> mappings = List.of(
 			MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE),
@@ -55,18 +55,18 @@ class MetricCollectionServiceTest {
 		// given
 		CollectionTarget target = target(NOW.minusSeconds(300));
 		given(homeDeviceService.findDueTargets(50)).willReturn(List.of(target));
-		given(adapters.adapterFor(VendorCode.AMAZON)).willReturn(amazon);
+		given(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).willReturn(amazonVendorAdapter);
 		Instant minute = Instant.parse("2026-09-27T10:01:00Z");
-		given(amazon.fetchMetrics("amz-ac-01", NOW.minusSeconds(300), NOW)).willReturn(List.of(
+		given(amazonVendorAdapter.fetchMetrics("amz-ac-01", NOW.minusSeconds(300), NOW)).willReturn(List.of(
 				new RawMetricSample(minute, Map.of("powerState", "ON", "powerConsumption", 1.15))));
 
 		// when
-		int succeeded = service.collectDue(50, RETRY);
+		int succeeded = metricCollectionService.collectDue(50, RETRY);
 
 		// then
 		assertThat(succeeded).isEqualTo(1);
 		ArgumentCaptor<List<DeviceReading>> readings = ArgumentCaptor.forClass(List.class);
-		then(readingService).should().saveCollected(eq(target.getHomeDeviceId()), readings.capture(),
+		then(deviceReadingService).should().saveCollected(eq(target.getHomeDeviceId()), readings.capture(),
 				eq(NOW.minusSeconds(300)), eq(NOW));
 		assertThat(readings.getValue()).extracting(DeviceReading::getValue).containsExactly("ON", "1150");
 		then(homeDeviceService).should(never()).scheduleRetry(any(), any());
@@ -85,26 +85,26 @@ class MetricCollectionServiceTest {
 		CollectionTarget failing = target(NOW.minusSeconds(300));
 		CollectionTarget ok = target(NOW.minusSeconds(300));
 		given(homeDeviceService.findDueTargets(50)).willReturn(List.of(failing, ok));
-		given(adapters.adapterFor(VendorCode.AMAZON)).willReturn(amazon);
-		given(amazon.fetchMetrics(any(), any(), any()))
+		given(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).willReturn(amazonVendorAdapter);
+		given(amazonVendorAdapter.fetchMetrics(any(), any(), any()))
 				.willThrow(new ResourceAccessException("connection refused"))
 				.willReturn(List.of());
 
 		// when
-		int succeeded = service.collectDue(50, RETRY);
+		int succeeded = metricCollectionService.collectDue(50, RETRY);
 
 		// then
 		assertThat(succeeded).isEqualTo(1);
 		then(homeDeviceService).should().scheduleRetry(failing.getHomeDeviceId(), RETRY);
-		then(readingService).should().saveCollected(eq(ok.getHomeDeviceId()), anyList(), any(), eq(NOW));
-		then(readingService).should(never()).saveCollected(eq(failing.getHomeDeviceId()), anyList(), any(), any());
+		then(deviceReadingService).should().saveCollected(eq(ok.getHomeDeviceId()), anyList(), any(), eq(NOW));
+		then(deviceReadingService).should(never()).saveCollected(eq(failing.getHomeDeviceId()), anyList(), any(), any());
 	}
 
 	@Test
 	void shouldDoNothing_whenNoDeviceIsDue() {
 		given(homeDeviceService.findDueTargets(50)).willReturn(List.of());
 
-		assertThat(service.collectDue(50, RETRY)).isZero();
-		then(adapters).shouldHaveNoInteractions();
+		assertThat(metricCollectionService.collectDue(50, RETRY)).isZero();
+		then(vendorAdapterRegistry).shouldHaveNoInteractions();
 	}
 }

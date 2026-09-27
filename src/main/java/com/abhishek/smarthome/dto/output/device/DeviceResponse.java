@@ -6,8 +6,10 @@ import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
 
 /** A supported device model from the catalogue, with its metric mappings. */
+@Getter
 public final class DeviceResponse {
 
 	private final UUID id;
@@ -32,37 +34,5 @@ public final class DeviceResponse {
 
 	public static DeviceResponse from(Device device) {
 		return new DeviceResponse(device);
-	}
-
-	public UUID getId() {
-		return id;
-	}
-
-	public UUID getVendorId() {
-		return vendorId;
-	}
-
-	public VendorCode getVendorCode() {
-		return vendorCode;
-	}
-
-	public DeviceType getDeviceType() {
-		return deviceType;
-	}
-
-	public String getModel() {
-		return model;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public List<MetricMappingResponse> getMappings() {
-		return mappings;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
 	}
 }

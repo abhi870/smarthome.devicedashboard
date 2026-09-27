@@ -18,23 +18,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class VendorService {
 
-	private final VendorRepository repository;
+	private final VendorRepository vendorRepository;
 	private final Clock clock;
 
 	@Transactional
 	public Vendor register(VendorCode code, String name) {
-		return repository.save(Vendor.register(code, name, clock.instant()));
+		return vendorRepository.save(Vendor.register(code, name, clock.instant()));
 	}
 
 	/** All vendors, ordered by code. */
 	public List<Vendor> list() {
-		return repository.findAll(Sort.by("code"));
+		return vendorRepository.findAll(Sort.by("code"));
 	}
 
 	/**
 	 * @throws VendorNotFoundException if no vendor has this id
 	 */
 	public Vendor get(UUID id) {
-		return repository.findById(id).orElseThrow(() -> new VendorNotFoundException(id));
+		return vendorRepository.findById(id).orElseThrow(() -> new VendorNotFoundException(id));
 	}
 }

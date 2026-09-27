@@ -37,7 +37,7 @@ class DeviceReadingControllerTest {
 	MockMvcTester mvc;
 
 	@MockitoBean
-	DeviceReadingService service;
+	DeviceReadingService deviceReadingService;
 
 	private String body(String metric, String valueAndUnit) {
 		return """
@@ -48,7 +48,7 @@ class DeviceReadingControllerTest {
 	@Test
 	void shouldStoreValueAndUnit() {
 		// given
-		given(service.save(any()))
+		given(deviceReadingService.save(any()))
 				.willReturn(DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, T0, "1150.5", "W", T0));
 
 		// when
@@ -62,7 +62,7 @@ class DeviceReadingControllerTest {
 		response.bodyJson().extractingPath("$.value").isEqualTo("1150.5");
 		response.bodyJson().extractingPath("$.unit").isEqualTo("W");
 		ArgumentCaptor<SaveDeviceReadingCommand> command = ArgumentCaptor.forClass(SaveDeviceReadingCommand.class);
-		then(service).should().save(command.capture());
+		then(deviceReadingService).should().save(command.capture());
 		assertThat(command.getValue().getValue()).isEqualTo("1150.5");
 		assertThat(command.getValue().getUnit()).isEqualTo("W");
 		assertThat(command.getValue().getTime()).isEqualTo(T0);
@@ -71,7 +71,7 @@ class DeviceReadingControllerTest {
 	@Test
 	void shouldStoreSwitchState_andDefaultUnitToMetricUnit() {
 		// given
-		given(service.save(any()))
+		given(deviceReadingService.save(any()))
 				.willReturn(DeviceReading.record(HOME_DEVICE_ID, MetricType.SWITCH, T0, "ON", "on/off", T0));
 
 		// when
@@ -81,7 +81,7 @@ class DeviceReadingControllerTest {
 
 		// then
 		ArgumentCaptor<SaveDeviceReadingCommand> command = ArgumentCaptor.forClass(SaveDeviceReadingCommand.class);
-		then(service).should().save(command.capture());
+		then(deviceReadingService).should().save(command.capture());
 		assertThat(command.getValue().getUnit()).isEqualTo("on/off");
 	}
 
@@ -101,7 +101,7 @@ class DeviceReadingControllerTest {
 	@Test
 	void shouldReturn404_whenHomeDeviceUnknown() {
 		// given
-		given(service.save(any())).willThrow(new HomeDeviceNotFoundException(HOME_DEVICE_ID));
+		given(deviceReadingService.save(any())).willThrow(new HomeDeviceNotFoundException(HOME_DEVICE_ID));
 
 		// when / then
 		assertThat(mvc.post().uri(BASE).contentType(APPLICATION_JSON).content(body("POWER", "\"value\":\"1\"")))
@@ -112,7 +112,7 @@ class DeviceReadingControllerTest {
 	void shouldReturnReadingsOfDeviceAndMetricBetweenDates() {
 		// given
 		Instant end = T0.plusSeconds(3600);
-		given(service.find(HOME_DEVICE_ID, T0, end, MetricType.TEMPERATURE)).willReturn(List.of(
+		given(deviceReadingService.find(HOME_DEVICE_ID, T0, end, MetricType.TEMPERATURE)).willReturn(List.of(
 				DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0.plusSeconds(60), "21.0", "C", T0),
 				DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0, "21.5", "C", T0)));
 
@@ -140,7 +140,7 @@ class DeviceReadingControllerTest {
 	@Test
 	void shouldReturn400_whenStartNotBeforeEnd() {
 		// given
-		given(service.find(HOME_DEVICE_ID, T0, T0, null)).willThrow(new InvalidTimeRangeException(T0, T0));
+		given(deviceReadingService.find(HOME_DEVICE_ID, T0, T0, null)).willThrow(new InvalidTimeRangeException(T0, T0));
 
 		// when / then
 		assertThat(mvc.get().uri(BASE).param("homeDeviceId", HOME_DEVICE_ID.toString())

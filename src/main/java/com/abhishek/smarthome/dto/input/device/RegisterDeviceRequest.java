@@ -9,8 +9,10 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
 
 /** Body of {@code POST /api/v1/smart-home/devices/register} (admin: add a supported device model). */
+@Getter
 public final class RegisterDeviceRequest {
 
 	@NotNull
@@ -43,25 +45,5 @@ public final class RegisterDeviceRequest {
 	public RegisterDeviceCommand toCommand() {
 		return new RegisterDeviceCommand(vendorId, deviceType, model, name,
 				mappings.stream().map(MetricMappingRequest::toMapping).toList());
-	}
-
-	public UUID getVendorId() {
-		return vendorId;
-	}
-
-	public DeviceType getDeviceType() {
-		return deviceType;
-	}
-
-	public String getModel() {
-		return model;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public List<MetricMappingRequest> getMappings() {
-		return mappings;
 	}
 }

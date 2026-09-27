@@ -1,8 +1,12 @@
 package com.abhishek.smarthome.dto.input.homedevice;
 
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /** Input for registering a device in a home, independent of the HTTP layer. */
+@Getter
+@RequiredArgsConstructor
 public final class RegisterHomeDeviceCommand {
 
 	private final UUID homeId;
@@ -10,33 +14,4 @@ public final class RegisterHomeDeviceCommand {
 	private final String externalDeviceId;
 	private final String name;
 	private final int pollingIntervalSeconds;
-
-	public RegisterHomeDeviceCommand(UUID homeId, UUID deviceId, String externalDeviceId, String name,
-			int pollingIntervalSeconds) {
-		this.homeId = homeId;
-		this.deviceId = deviceId;
-		this.externalDeviceId = externalDeviceId;
-		this.name = name;
-		this.pollingIntervalSeconds = pollingIntervalSeconds;
-	}
-
-	public UUID getHomeId() {
-		return homeId;
-	}
-
-	public UUID getDeviceId() {
-		return deviceId;
-	}
-
-	public String getExternalDeviceId() {
-		return externalDeviceId;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public int getPollingIntervalSeconds() {
-		return pollingIntervalSeconds;
-	}
 }

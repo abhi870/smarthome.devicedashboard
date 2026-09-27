@@ -35,9 +35,9 @@ class MetricMappingTest {
 	void shouldAccept_whenConversionMatchesMetric(MetricType metric, Conversion conversion) {
 		MetricMapping mapping = MetricMapping.of("x", metric, conversion);
 
-		assertThat(mapping.getInternalUnit()).isEqualTo(metric.unit());
-		assertThat(mapping.getFactor()).isEqualByComparingTo(conversion.factor());
-		assertThat(mapping.getOffset()).isEqualByComparingTo(conversion.offset());
+		assertThat(mapping.getInternalUnit()).isEqualTo(metric.getUnit());
+		assertThat(mapping.getFactor()).isEqualByComparingTo(conversion.getFactor());
+		assertThat(mapping.getOffset()).isEqualByComparingTo(conversion.getOffset());
 	}
 
 	@Test

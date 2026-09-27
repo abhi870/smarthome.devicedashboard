@@ -10,14 +10,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class VendorAdapterRegistry {
 
-	private final Map<VendorCode, VendorAdapter> adapters = new EnumMap<>(VendorCode.class);
+	private final Map<VendorCode, VendorAdapter> adaptersByVendor = new EnumMap<>(VendorCode.class);
 
-	public VendorAdapterRegistry(List<VendorAdapter> adapters) {
-		for (VendorAdapter adapter : adapters) {
-			VendorAdapter previous = this.adapters.put(adapter.vendorCode(), adapter);
+	public VendorAdapterRegistry(List<VendorAdapter> adaptersByVendor) {
+		for (VendorAdapter adapter : adaptersByVendor) {
+			VendorAdapter previous = this.adaptersByVendor.put(adapter.getVendorCode(), adapter);
 			if (previous != null) {
 				throw new IllegalStateException("Duplicate vendor adapters for %s: %s and %s".formatted(
-						adapter.vendorCode(), previous.getClass().getSimpleName(), adapter.getClass().getSimpleName()));
+						adapter.getVendorCode(), previous.getClass().getSimpleName(), adapter.getClass().getSimpleName()));
 			}
 		}
 	}
@@ -26,9 +26,9 @@ public class VendorAdapterRegistry {
 	 * @throws IllegalStateException if no adapter exists for the vendor
 	 */
 	public VendorAdapter adapterFor(VendorCode vendor) {
-		VendorAdapter adapter = adapters.get(vendor);
+		VendorAdapter adapter = adaptersByVendor.get(vendor);
 		if (adapter == null) {
-			throw new IllegalStateException("No vendor adapter for " + vendor + "; available: " + adapters.keySet());
+			throw new IllegalStateException("No vendor adapter for " + vendor + "; available: " + adaptersByVendor.keySet());
 		}
 		return adapter;
 	}

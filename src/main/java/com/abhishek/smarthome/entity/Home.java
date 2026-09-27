@@ -13,11 +13,13 @@ import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** A home that owns registered {@link HomeDevice}s. {@link #timezone} defines day boundaries for its daily reports. */
 @Entity
 @Table(name = "home")
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class Home {
 
 	@Id
@@ -40,10 +42,6 @@ public class Home {
 	@OneToMany(mappedBy = "home")
 	@Getter(AccessLevel.NONE)
 	private List<HomeDevice> devices = new ArrayList<>();
-
-	protected Home() {
-		// for JPA
-	}
 
 	public static Home register(String name, String timezone, Instant now) {
 		Home home = new Home();

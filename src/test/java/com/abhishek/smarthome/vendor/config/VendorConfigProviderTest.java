@@ -19,20 +19,20 @@ class VendorConfigProviderTest {
 	@Test
 	void shouldReturnConfig_whenVendorConfigured() {
 		// given
-		VendorConfigProvider provider = providerWith(Map.of(VendorCode.SAMSUNG, samsung, VendorCode.CISCO, cisco));
+		VendorConfigProvider vendorConfigProvider = providerWith(Map.of(VendorCode.SAMSUNG, samsung, VendorCode.CISCO, cisco));
 
 		// when / then
-		assertThat(provider.get(VendorCode.SAMSUNG)).isSameAs(samsung);
-		assertThat(provider.get(VendorCode.CISCO)).isSameAs(cisco);
+		assertThat(vendorConfigProvider.get(VendorCode.SAMSUNG)).isSameAs(samsung);
+		assertThat(vendorConfigProvider.get(VendorCode.CISCO)).isSameAs(cisco);
 	}
 
 	@Test
 	void shouldThrowWithActionableMessage_whenVendorNotConfigured() {
 		// given
-		VendorConfigProvider provider = providerWith(Map.of(VendorCode.SAMSUNG, samsung));
+		VendorConfigProvider vendorConfigProvider = providerWith(Map.of(VendorCode.SAMSUNG, samsung));
 
 		// when / then
-		assertThatThrownBy(() -> provider.get(VendorCode.AMAZON))
+		assertThatThrownBy(() -> vendorConfigProvider.get(VendorCode.AMAZON))
 				.isInstanceOf(VendorNotConfiguredException.class)
 				.hasMessageContaining("AMAZON")
 				.hasMessageContaining("smarthome.vendors.amazon");
@@ -41,26 +41,26 @@ class VendorConfigProviderTest {
 	@Test
 	void shouldListConfiguredVendorsInEnumOrder() {
 		// given
-		VendorConfigProvider provider = providerWith(Map.of(VendorCode.CISCO, cisco, VendorCode.SAMSUNG, samsung));
+		VendorConfigProvider vendorConfigProvider = providerWith(Map.of(VendorCode.CISCO, cisco, VendorCode.SAMSUNG, samsung));
 
 		// when / then
-		assertThat(provider.configuredVendors()).containsExactly(VendorCode.SAMSUNG, VendorCode.CISCO);
-		assertThat(provider.isConfigured(VendorCode.CISCO)).isTrue();
-		assertThat(provider.isConfigured(VendorCode.AMAZON)).isFalse();
+		assertThat(vendorConfigProvider.configuredVendors()).containsExactly(VendorCode.SAMSUNG, VendorCode.CISCO);
+		assertThat(vendorConfigProvider.isConfigured(VendorCode.CISCO)).isTrue();
+		assertThat(vendorConfigProvider.isConfigured(VendorCode.AMAZON)).isFalse();
 	}
 
 	@Test
 	void shouldNotReflectLaterChangesToSourceMap_andBeUnmodifiable() {
 		// given
 		Map<VendorCode, VendorProperties> source = new HashMap<>(Map.of(VendorCode.SAMSUNG, samsung));
-		VendorConfigProvider provider = providerWith(source);
+		VendorConfigProvider vendorConfigProvider = providerWith(source);
 
 		// when
 		source.put(VendorCode.CISCO, cisco);
 
 		// then
-		assertThat(provider.isConfigured(VendorCode.CISCO)).isFalse();
-		assertThatThrownBy(() -> provider.configuredVendors().remove(VendorCode.SAMSUNG))
+		assertThat(vendorConfigProvider.isConfigured(VendorCode.CISCO)).isFalse();
+		assertThatThrownBy(() -> vendorConfigProvider.configuredVendors().remove(VendorCode.SAMSUNG))
 				.isInstanceOf(UnsupportedOperationException.class);
 	}
 

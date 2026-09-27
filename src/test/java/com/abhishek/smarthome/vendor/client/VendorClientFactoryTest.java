@@ -33,10 +33,10 @@ class VendorClientFactoryTest {
 			Duration.ofSeconds(1), Duration.ofSeconds(2),
 			new AuthProperties(AuthType.API_KEY_HEADER, "X-API-Key", null, "samsung-key"));
 
-	private final VendorConfigProvider config = new VendorConfigProvider(
+	private final VendorConfigProvider vendorConfigProvider = new VendorConfigProvider(
 			new SmartHomeProperties(Map.of(VendorCode.SAMSUNG, samsung)));
 
-	private final VendorAuthRegistry authRegistry = mock(VendorAuthRegistry.class);
+	private final VendorAuthRegistry vendorAuthRegistry = mock(VendorAuthRegistry.class);
 
 	/** Stands in for the real API-key interceptor (tested in the auth package). */
 	private final ClientHttpRequestInterceptor apiKey = (request, body, execution) -> {
@@ -47,23 +47,23 @@ class VendorClientFactoryTest {
 	@Test
 	void shouldBuildOneClientPerConfiguredVendor() {
 		// given
-		given(authRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
+		given(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
 
 		// when
-		VendorClientFactory factory = new VendorClientFactory(config, authRegistry);
+		VendorClientFactory vendorClientFactory = new VendorClientFactory(vendorConfigProvider, vendorAuthRegistry);
 
 		// then
-		assertThat(factory.clientFor(VendorCode.SAMSUNG)).isNotNull().isSameAs(factory.clientFor(VendorCode.SAMSUNG));
+		assertThat(vendorClientFactory.clientFor(VendorCode.SAMSUNG)).isNotNull().isSameAs(vendorClientFactory.clientFor(VendorCode.SAMSUNG));
 	}
 
 	@Test
 	void shouldThrowNotConfigured_whenVendorHasNoConfig() {
 		// given
-		given(authRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
-		VendorClientFactory factory = new VendorClientFactory(config, authRegistry);
+		given(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
+		VendorClientFactory vendorClientFactory = new VendorClientFactory(vendorConfigProvider, vendorAuthRegistry);
 
 		// when / then
-		assertThatThrownBy(() -> factory.clientFor(VendorCode.CISCO))
+		assertThatThrownBy(() -> vendorClientFactory.clientFor(VendorCode.CISCO))
 				.isInstanceOf(VendorNotConfiguredException.class)
 				.hasMessageContaining("smarthome.vendors.cisco");
 	}
@@ -71,8 +71,8 @@ class VendorClientFactoryTest {
 	@Test
 	void shouldResolvePathsAgainstBaseUrl_andSendAuthHeader() {
 		// given
-		given(authRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
-		RestClient.Builder builder = VendorClientFactory.configure(RestClient.builder(), samsung, authRegistry,
+		given(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn(apiKey);
+		RestClient.Builder builder = VendorClientFactory.configure(RestClient.builder(), samsung, vendorAuthRegistry,
 				VendorCode.SAMSUNG);
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
 		server.expect(requestTo("http://localhost:8081/api/v1/samsung/devices"))
@@ -91,10 +91,10 @@ class VendorClientFactoryTest {
 	@Test
 	void shouldFailFast_whenAuthIsMissingForAConfiguredVendor() {
 		// given
-		given(authRegistry.interceptorFor(VendorCode.SAMSUNG)).willThrow(new VendorNotConfiguredException(VendorCode.SAMSUNG));
+		given(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).willThrow(new VendorNotConfiguredException(VendorCode.SAMSUNG));
 
 		// when / then
-		assertThatThrownBy(() -> new VendorClientFactory(config, authRegistry))
+		assertThatThrownBy(() -> new VendorClientFactory(vendorConfigProvider, vendorAuthRegistry))
 				.isInstanceOf(VendorNotConfiguredException.class);
 	}
 }

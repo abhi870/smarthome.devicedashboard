@@ -4,7 +4,6 @@ import com.abhishek.smarthome.dto.input.homedevice.CollectionTarget;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.vendor.adapter.RawMetricSample;
-import com.abhishek.smarthome.vendor.adapter.VendorAdapter;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapterRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -29,9 +28,9 @@ public class MetricCollectionService {
 	static final Duration MAX_RANGE = Duration.ofHours(24);
 
 	private final HomeDeviceService homeDeviceService;
-	private final VendorAdapterRegistry adapters;
-	private final DeviceReadingConverter converter;
-	private final DeviceReadingService readingService;
+	private final VendorAdapterRegistry vendorAdapterRegistry;
+	private final DeviceReadingConverter deviceReadingConverter;
+	private final DeviceReadingService deviceReadingService;
 	private final Clock clock;
 
 	/**
@@ -41,48 +40,49 @@ public class MetricCollectionService {
 	 */
 	public int collectDue(int batchSize, Duration retryDelay) {
 		List<CollectionTarget> targets = homeDeviceService.findDueTargets(batchSize);
-		int succeeded = 0;
-		for (CollectionTarget target : targets) {
-			if (collect(target, retryDelay)) {
-				succeeded++;
-			}
-		}
+		long succeeded = targets.stream().filter(target -> collect(target, retryDelay)).count();
 		if (!targets.isEmpty()) {
 			log.info("Collected {}/{} due home devices", succeeded, targets.size());
 		}
-		return succeeded;
+		return (int) succeeded;
 	}
 
 	/** Collects one device; on failure schedules a retry instead of throwing. */
 	boolean collect(CollectionTarget target, Duration retryDelay) {
-		Instant to = clock.instant();
-		Instant from = rangeStart(target, to);
 		MDC.put("homeDeviceId", target.getHomeDeviceId().toString());
 		MDC.put("vendor", target.getVendorCode().name());
 		try {
-			VendorAdapter adapter = adapters.adapterFor(target.getVendorCode());
-			List<RawMetricSample> samples = adapter.fetchMetrics(target.getExternalDeviceId(), from, to);
-			List<DeviceReading> readings = converter.convert(target.getHomeDeviceId(), target.getMappings(), samples,
-					to);
-			int stored = readingService.saveCollected(target.getHomeDeviceId(), readings, from, to);
-			log.debug("Collected {} samples → {} readings ({} new) for {} [{}, {})", samples.size(), readings.size(),
-					stored, target.getExternalDeviceId(), from, to);
+			Instant to = clock.instant();
+			fetchAndStore(target, rangeStart(target, to), to);
 			return true;
 		}
 		catch (RuntimeException e) {
-			log.warn("Collection failed for home device {} ({} {}), retrying in {}: {}", target.getHomeDeviceId(),
-					target.getVendorCode(), target.getExternalDeviceId(), retryDelay, e.toString());
-			try {
-				homeDeviceService.scheduleRetry(target.getHomeDeviceId(), retryDelay);
-			}
-			catch (RuntimeException retryFailure) {
-				log.error("Could not schedule retry for home device {}", target.getHomeDeviceId(), retryFailure);
-			}
+			log.warn("Collection failed for {} {}, retrying in {}: {}", target.getVendorCode(),
+					target.getExternalDeviceId(), retryDelay, e.toString());
+			scheduleRetry(target, retryDelay);
 			return false;
 		}
 		finally {
 			MDC.remove("homeDeviceId");
 			MDC.remove("vendor");
+		}
+	}
+
+	/** Vendor call (no transaction) → readings → one transaction that stores them and moves {@code nextRunAt}. */
+	private void fetchAndStore(CollectionTarget target, Instant from, Instant to) {
+		List<RawMetricSample> samples = vendorAdapterRegistry.adapterFor(target.getVendorCode())
+				.fetchMetrics(target.getExternalDeviceId(), from, to);
+		List<DeviceReading> readings = deviceReadingConverter.convert(target.getHomeDeviceId(), target.getMappings(), samples, to);
+		int stored = deviceReadingService.saveCollected(target.getHomeDeviceId(), readings, from, to);
+		log.debug("{} samples -> {} readings ({} new) for [{}, {})", samples.size(), readings.size(), stored, from, to);
+	}
+
+	private void scheduleRetry(CollectionTarget target, Duration retryDelay) {
+		try {
+			homeDeviceService.scheduleRetry(target.getHomeDeviceId(), retryDelay);
+		}
+		catch (RuntimeException e) {
+			log.error("Could not schedule retry for home device {}", target.getHomeDeviceId(), e);
 		}
 	}
 

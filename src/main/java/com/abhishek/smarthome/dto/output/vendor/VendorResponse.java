@@ -4,7 +4,9 @@ import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
 
+@Getter
 public final class VendorResponse {
 
 	private final UUID id;
@@ -21,21 +23,5 @@ public final class VendorResponse {
 
 	public static VendorResponse from(Vendor vendor) {
 		return new VendorResponse(vendor);
-	}
-
-	public UUID getId() {
-		return id;
-	}
-
-	public VendorCode getCode() {
-		return code;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
 	}
 }

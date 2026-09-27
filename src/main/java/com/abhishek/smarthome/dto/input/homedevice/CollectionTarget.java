@@ -6,12 +6,14 @@ import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Everything the collector needs about one due home device, copied out of the entity inside a transaction so the
  * vendor call can run without a persistence context: ids, vendor, schedule and the catalogue device's mappings.
  */
+@Getter
 public final class CollectionTarget {
 
 	private final UUID homeDeviceId;
@@ -35,30 +37,6 @@ public final class CollectionTarget {
 		return new CollectionTarget(homeDevice.getId(), homeDevice.getDevice().getVendor().getCode(),
 				homeDevice.getExternalDeviceId(), homeDevice.getPollingIntervalSeconds(), homeDevice.getLastRunAt(),
 				homeDevice.getDevice().getMetricMappings());
-	}
-
-	public UUID getHomeDeviceId() {
-		return homeDeviceId;
-	}
-
-	public VendorCode getVendorCode() {
-		return vendorCode;
-	}
-
-	public String getExternalDeviceId() {
-		return externalDeviceId;
-	}
-
-	public int getPollingIntervalSeconds() {
-		return pollingIntervalSeconds;
-	}
-
-	public @Nullable Instant getLastRunAt() {
-		return lastRunAt;
-	}
-
-	public List<MetricMapping> getMappings() {
-		return mappings;
 	}
 
 	@Override

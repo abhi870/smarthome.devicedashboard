@@ -3,9 +3,11 @@ package com.abhishek.smarthome.vendor.config;
 import com.abhishek.smarthome.enums.AuthType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /** Outbound authentication settings for one vendor. */
+@Getter
 public final class AuthProperties {
 
 	/** Authentication scheme. */
@@ -29,22 +31,6 @@ public final class AuthProperties {
 		this.name = name;
 		this.prefix = prefix;
 		this.apiKey = apiKey;
-	}
-
-	public AuthType getType() {
-		return type;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public @Nullable String getPrefix() {
-		return prefix;
-	}
-
-	public String getApiKey() {
-		return apiKey;
 	}
 
 	@Override

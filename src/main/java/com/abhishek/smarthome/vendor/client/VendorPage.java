@@ -1,6 +1,7 @@
 package com.abhishek.smarthome.vendor.client;
 
 import java.util.List;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -8,6 +9,7 @@ import org.jspecify.annotations.Nullable;
  * page. The cursor is whatever the vendor pages by — a page number (Samsung), an opaque token (Amazon) or a
  * timestamp (Cisco) — kept as text so {@link VendorPaginator} can follow any of them.
  */
+@Getter
 public final class VendorPage<T> {
 
 	private final List<T> items;
@@ -26,14 +28,6 @@ public final class VendorPage<T> {
 	/** The last page. */
 	public static <T> VendorPage<T> last(List<T> items) {
 		return new VendorPage<>(items, null);
-	}
-
-	public List<T> getItems() {
-		return items;
-	}
-
-	public @Nullable String getNextCursor() {
-		return nextCursor;
 	}
 
 	public boolean hasNext() {

@@ -10,21 +10,21 @@ import org.junit.jupiter.api.Test;
 
 class DeviceMetricFetchSchedulerTest {
 
-	private final MetricCollectionService collectionService = mock(MetricCollectionService.class);
-	private final CollectionProperties properties = new CollectionProperties(true, 25, Duration.ofSeconds(30));
-	private final DeviceMetricFetchScheduler scheduler = new DeviceMetricFetchScheduler(collectionService, properties);
+	private final MetricCollectionService metricCollectionService = mock(MetricCollectionService.class);
+	private final CollectionProperties collectionProperties = new CollectionProperties(true, 25, Duration.ofSeconds(30));
+	private final DeviceMetricFetchScheduler deviceMetricFetchScheduler = new DeviceMetricFetchScheduler(metricCollectionService, collectionProperties);
 
 	@Test
 	void shouldCollectDueDevicesWithConfiguredBatchAndRetryDelay() {
-		scheduler.fetchDueDeviceMetrics();
+		deviceMetricFetchScheduler.fetchDueDeviceMetrics();
 
-		then(collectionService).should().collectDue(25, Duration.ofSeconds(30));
+		then(metricCollectionService).should().collectDue(25, Duration.ofSeconds(30));
 	}
 
 	@Test
 	void shouldNotPropagateFailures_soTheNextTickStillRuns() {
-		given(collectionService.collectDue(25, Duration.ofSeconds(30))).willThrow(new IllegalStateException("db down"));
+		given(metricCollectionService.collectDue(25, Duration.ofSeconds(30))).willThrow(new IllegalStateException("db down"));
 
-		scheduler.fetchDueDeviceMetrics(); // no exception
+		deviceMetricFetchScheduler.fetchDueDeviceMetrics(); // no exception
 	}
 }

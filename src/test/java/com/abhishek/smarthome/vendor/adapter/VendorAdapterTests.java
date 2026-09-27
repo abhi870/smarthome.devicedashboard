@@ -26,12 +26,12 @@ class VendorAdapterTests {
 	private static final Instant FROM = Instant.parse("2026-09-26T10:00:00Z");
 	private static final Instant TO = Instant.parse("2026-09-26T10:03:00Z");
 
-	private final VendorClientFactory clients = mock(VendorClientFactory.class);
+	private final VendorClientFactory vendorClientFactory = mock(VendorClientFactory.class);
 
 	private MockRestServiceServer serverFor(VendorCode vendor, String baseUrl) {
 		RestClient.Builder builder = RestClient.builder().baseUrl(baseUrl);
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-		given(clients.clientFor(vendor)).willReturn(builder.build());
+		given(vendorClientFactory.clientFor(vendor)).willReturn(builder.build());
 		return server;
 	}
 
@@ -52,7 +52,7 @@ class VendorAdapterTests {
 						  "switch":{"switch":{"value":"off"}}}}}],
 						 "page":{"number":1,"size":500,"totalElements":2,"totalPages":2}}""", MediaType.APPLICATION_JSON));
 
-		List<RawMetricSample> samples = new SamsungVendorAdapter(clients).fetchMetrics("sam-fridge-01", FROM, TO);
+		List<RawMetricSample> samples = new SamsungVendorAdapter(vendorClientFactory).fetchMetrics("sam-fridge-01", FROM, TO);
 
 		assertThat(samples).hasSize(2);
 		assertThat(samples.get(0).getTime()).isEqualTo(FROM);
@@ -66,20 +66,19 @@ class VendorAdapterTests {
 	@Test
 	void amazon_shouldFollowNextToken_andFlattenProperties() {
 		MockRestServiceServer server = serverFor(VendorCode.AMAZON, "http://vendor/api/v1/amazon");
-		server.expect(requestTo(Matchers.startsWith("http://vendor/api/v1/amazon/devices/metrics")))
-				.andExpect(queryParam("ids", "amz-ac-01"))
+		server.expect(requestTo(Matchers.startsWith("http://vendor/api/v1/amazon/devices/amz-ac-01/metrics")))
 				.andExpect(queryParam("startTime", String.valueOf(FROM.toEpochMilli())))
 				.andExpect(queryParam("endTime", String.valueOf(TO.toEpochMilli())))
 				.andRespond(withSuccess("""
-						{"results":[{"applianceId":"amz-ac-01","datapoints":[{"t":1790416800000,"properties":[
-						  {"name":"powerState","value":"ON"},{"name":"powerConsumption","value":1.15,"unit":"KILOWATT"}]}]}],
+						{"applianceId":"amz-ac-01","datapoints":[{"t":1790416800000,"properties":[
+						  {"name":"powerState","value":"ON"},{"name":"powerConsumption","value":1.15,"unit":"KILOWATT"}]}],
 						 "nextToken":"b2Zmc2V0OjE"}""", MediaType.APPLICATION_JSON));
 		server.expect(requestTo(Matchers.containsString("nextToken=b2Zmc2V0OjE")))
 				.andRespond(withSuccess("""
-						{"results":[{"applianceId":"amz-ac-01","datapoints":[{"t":1790416860000,"properties":[
-						  {"name":"powerState","value":"OFF"}]}]}]}""", MediaType.APPLICATION_JSON));
+						{"applianceId":"amz-ac-01","datapoints":[{"t":1790416860000,"properties":[
+						  {"name":"powerState","value":"OFF"}]}]}""", MediaType.APPLICATION_JSON));
 
-		List<RawMetricSample> samples = new AmazonVendorAdapter(clients).fetchMetrics("amz-ac-01", FROM, TO);
+		List<RawMetricSample> samples = new AmazonVendorAdapter(vendorClientFactory).fetchMetrics("amz-ac-01", FROM, TO);
 
 		assertThat(samples).extracting(RawMetricSample::getTime).containsExactly(FROM, FROM.plusSeconds(60));
 		assertThat(samples.get(0).getMetrics()).containsEntry("powerState", "ON").containsEntry("powerConsumption", 1.15);
@@ -101,7 +100,7 @@ class VendorAdapterTests {
 						 "next_since":%d}""".formatted(since, since + 60, since + 120, since + 180, since + 240),
 						MediaType.APPLICATION_JSON));
 
-		List<RawMetricSample> samples = new CiscoVendorAdapter(clients).fetchMetrics("csc-oven-01", FROM, TO);
+		List<RawMetricSample> samples = new CiscoVendorAdapter(vendorClientFactory).fetchMetrics("csc-oven-01", FROM, TO);
 
 		// 10:03 is at "to" (exclusive) and dropped; next_since is past "to", so no second request
 		assertThat(samples).extracting(RawMetricSample::getTime)
@@ -116,19 +115,19 @@ class VendorAdapterTests {
 		MockRestServiceServer server = serverFor(VendorCode.CISCO, "http://vendor/api/v1/cisco");
 		server.expect(requestTo(Matchers.containsString("/metrics"))).andRespond(withServerError());
 
-		assertThatThrownBy(() -> new CiscoVendorAdapter(clients).fetchMetrics("csc-oven-01", FROM, TO))
+		assertThatThrownBy(() -> new CiscoVendorAdapter(vendorClientFactory).fetchMetrics("csc-oven-01", FROM, TO))
 				.isInstanceOf(RestClientException.class);
 	}
 
 	@Test
 	void registry_shouldFindAdapterByVendor_andRejectDuplicates() {
-		VendorAdapterRegistry registry = new VendorAdapterRegistry(
-				List.of(new SamsungVendorAdapter(clients), new AmazonVendorAdapter(clients)));
+		VendorAdapterRegistry vendorAdapterRegistry = new VendorAdapterRegistry(
+				List.of(new SamsungVendorAdapter(vendorClientFactory), new AmazonVendorAdapter(vendorClientFactory)));
 
-		assertThat(registry.adapterFor(VendorCode.AMAZON)).isInstanceOf(AmazonVendorAdapter.class);
-		assertThatThrownBy(() -> registry.adapterFor(VendorCode.CISCO)).hasMessageContaining("No vendor adapter");
+		assertThat(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).isInstanceOf(AmazonVendorAdapter.class);
+		assertThatThrownBy(() -> vendorAdapterRegistry.adapterFor(VendorCode.CISCO)).hasMessageContaining("No vendor adapter");
 		assertThatThrownBy(() -> new VendorAdapterRegistry(
-				List.of(new CiscoVendorAdapter(clients), new CiscoVendorAdapter(clients))))
+				List.of(new CiscoVendorAdapter(vendorClientFactory), new CiscoVendorAdapter(vendorClientFactory))))
 				.hasMessageContaining("Duplicate vendor adapters for CISCO");
 	}
 }

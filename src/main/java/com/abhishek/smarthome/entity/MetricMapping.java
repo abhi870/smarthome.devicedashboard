@@ -9,7 +9,9 @@ import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import java.math.BigDecimal;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * The complete recipe for turning one vendor metric of a catalogue {@link Device} into a smart-home reading:
@@ -18,7 +20,7 @@ import lombok.Getter;
  *
  * <p>Rules (violations → {@link InvalidMetricMappingException}, 400):
  * <ul>
- * <li>{@code internalUnit} must be the metric's canonical unit ({@link MetricType#unit()}), so readings of the same
+ * <li>{@code internalUnit} must be the metric's canonical unit ({@link MetricType#getUnit()}), so readings of the same
  * metric from different vendors can be summed and averaged;</li>
  * <li>{@code factor} must not be zero;</li>
  * <li>SWITCH values are on/off states, so SWITCH mappings must be the identity (factor 1, offset 0).</li>
@@ -26,6 +28,7 @@ import lombok.Getter;
  */
 @Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class MetricMapping {
 
 	private static final int UNIT_LENGTH = 20;
@@ -42,7 +45,7 @@ public class MetricMapping {
 	@Column(name = "external_unit", nullable = false, length = UNIT_LENGTH)
 	private String externalUnit;
 
-	/** Unit stored in readings; always {@code metric.unit()}. */
+	/** Unit stored in readings; always {@code metric.getUnit()}. */
 	@Column(name = "internal_unit", nullable = false, length = UNIT_LENGTH)
 	private String internalUnit;
 
@@ -52,18 +55,14 @@ public class MetricMapping {
 	@Column(name = "value_offset", nullable = false, precision = 30, scale = 15)
 	private BigDecimal offset;
 
-	protected MetricMapping() {
-		// for JPA
-	}
-
 	/**
 	 * @throws InvalidMetricMappingException if a rule above is broken
 	 */
 	public MetricMapping(String externalMetric, MetricType metric, String externalUnit, String internalUnit,
 			BigDecimal factor, BigDecimal offset) {
-		if (!metric.unit().equals(internalUnit)) {
+		if (!metric.getUnit().equals(internalUnit)) {
 			throw new InvalidMetricMappingException("internalUnit of '" + externalMetric + "' must be '"
-					+ metric.unit() + "' for metric " + metric + ", not '" + internalUnit + "'");
+					+ metric.getUnit() + "' for metric " + metric + ", not '" + internalUnit + "'");
 		}
 		if (factor.signum() == 0) {
 			throw new InvalidMetricMappingException("factor of '" + externalMetric + "' must not be 0");
@@ -90,8 +89,8 @@ public class MetricMapping {
 			throw new InvalidMetricMappingException("Conversion " + preset + " cannot be used for metric " + metric
 					+ " of '" + externalMetric + "'");
 		}
-		return new MetricMapping(externalMetric, metric, preset.externalUnit(metric), metric.unit(), preset.factor(),
-				preset.offset());
+		return new MetricMapping(externalMetric, metric, preset.getExternalUnit(metric), metric.getUnit(), preset.getFactor(),
+				preset.getOffset());
 	}
 
 	/**

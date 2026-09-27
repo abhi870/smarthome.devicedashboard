@@ -30,10 +30,10 @@ class HomeDeviceServiceTest {
 
 	private static final Instant NOW = Instant.parse("2026-09-27T10:00:00Z");
 
-	private final HomeDeviceRepository repository = mock(HomeDeviceRepository.class);
+	private final HomeDeviceRepository homeDeviceRepository = mock(HomeDeviceRepository.class);
 	private final HomeService homeService = mock(HomeService.class);
 	private final DeviceCatalogService deviceCatalogService = mock(DeviceCatalogService.class);
-	private final HomeDeviceService service = new HomeDeviceService(repository, homeService, deviceCatalogService,
+	private final HomeDeviceService homeDeviceService = new HomeDeviceService(homeDeviceRepository, homeService, deviceCatalogService,
 			Clock.fixed(NOW, ZoneOffset.UTC));
 
 	private final Home home = Home.register("My home", "UTC", NOW);
@@ -45,10 +45,10 @@ class HomeDeviceServiceTest {
 		// given
 		given(homeService.get(home.getId())).willReturn(home);
 		given(deviceCatalogService.get(device.getId())).willReturn(device);
-		given(repository.save(any(HomeDevice.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(homeDeviceRepository.save(any(HomeDevice.class))).willAnswer(invocation -> invocation.getArgument(0));
 
 		// when
-		HomeDevice registered = service.register(
+		HomeDevice registered = homeDeviceService.register(
 				new RegisterHomeDeviceCommand(home.getId(), device.getId(), "cs-tv-01", "Living room TV", 120));
 
 		// then
@@ -70,20 +70,20 @@ class HomeDeviceServiceTest {
 		given(deviceCatalogService.get(device.getId())).willThrow(new DeviceNotFoundException(device.getId()));
 
 		// when / then
-		assertThatThrownBy(() -> service.register(
+		assertThatThrownBy(() -> homeDeviceService.register(
 				new RegisterHomeDeviceCommand(home.getId(), device.getId(), "cs-tv-01", "Living room TV", 120)))
 				.isInstanceOf(DeviceNotFoundException.class);
-		then(repository).shouldHaveNoInteractions();
+		then(homeDeviceRepository).shouldHaveNoInteractions();
 	}
 
 	@Test
 	void shouldThrowNotFound_whenHomeDeviceUnknown() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(repository.findWithDeviceById(id)).willReturn(Optional.empty());
+		given(homeDeviceRepository.findWithDeviceById(id)).willReturn(Optional.empty());
 
 		// when / then
-		assertThatThrownBy(() -> service.get(id)).isInstanceOf(HomeDeviceNotFoundException.class);
+		assertThatThrownBy(() -> homeDeviceService.get(id)).isInstanceOf(HomeDeviceNotFoundException.class);
 	}
 
 	@Test
@@ -91,10 +91,10 @@ class HomeDeviceServiceTest {
 		// given: last run 10 minutes ago with a 1-hour interval
 		HomeDevice homeDevice = HomeDevice.register(home, device, "cs-tv-01", "TV", 3600, NOW.minusSeconds(3600));
 		homeDevice.markRun(NOW.minusSeconds(600));
-		given(repository.findWithDeviceById(homeDevice.getId())).willReturn(Optional.of(homeDevice));
+		given(homeDeviceRepository.findWithDeviceById(homeDevice.getId())).willReturn(Optional.of(homeDevice));
 
 		// when: 5 minutes -> next run is already past, so it is due now
-		HomeDevice changed = service.changePollingInterval(homeDevice.getId(), 300);
+		HomeDevice changed = homeDeviceService.changePollingInterval(homeDevice.getId(), 300);
 
 		// then
 		assertThat(changed.getPollingIntervalSeconds()).isEqualTo(300);
@@ -104,13 +104,13 @@ class HomeDeviceServiceTest {
 	@Test
 	void shouldFindDueDevicesAtClockTime() {
 		// given
-		given(repository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50)))
+		given(homeDeviceRepository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50)))
 				.willReturn(List.of());
 
 		// when
-		service.findDue(50);
+		homeDeviceService.findDue(50);
 
 		// then
-		then(repository).should().findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50));
+		then(homeDeviceRepository).should().findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(50));
 	}
 }

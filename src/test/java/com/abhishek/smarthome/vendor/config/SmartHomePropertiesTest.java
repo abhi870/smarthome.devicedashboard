@@ -25,20 +25,20 @@ class SmartHomePropertiesTest {
 				.run(context -> {
 					// then
 					assertThat(context).hasNotFailed();
-					SmartHomeProperties props = context.getBean(SmartHomeProperties.class);
-					assertThat(props.getVendors()).containsOnlyKeys(VendorCode.SAMSUNG, VendorCode.AMAZON, VendorCode.CISCO);
+					SmartHomeProperties smartHomeProperties = context.getBean(SmartHomeProperties.class);
+					assertThat(smartHomeProperties.getVendors()).containsOnlyKeys(VendorCode.SAMSUNG, VendorCode.AMAZON, VendorCode.CISCO);
 
-					VendorProperties samsung = props.getVendors().get(VendorCode.SAMSUNG);
+					VendorProperties samsung = smartHomeProperties.getVendors().get(VendorCode.SAMSUNG);
 					assertThat(samsung.getBaseUrl()).isEqualTo(URI.create("http://localhost:8081/api/v1/samsung"));
 					assertThat(samsung.getAuth().getType()).isEqualTo(AuthType.API_KEY_HEADER);
 					assertThat(samsung.getAuth().getName()).isEqualTo("X-API-Key");
 					assertThat(samsung.getAuth().getPrefix()).isNull();
 
-					AuthProperties amazon = props.getVendors().get(VendorCode.AMAZON).getAuth();
+					AuthProperties amazon = smartHomeProperties.getVendors().get(VendorCode.AMAZON).getAuth();
 					assertThat(amazon.getName()).isEqualTo("Authorization");
 					assertThat(amazon.getPrefix()).isEqualTo("Bearer ");
 
-					AuthProperties cisco = props.getVendors().get(VendorCode.CISCO).getAuth();
+					AuthProperties cisco = smartHomeProperties.getVendors().get(VendorCode.CISCO).getAuth();
 					assertThat(cisco.getType()).isEqualTo(AuthType.API_KEY_HEADER);
 					assertThat(cisco.getName()).isEqualTo("X-Cisco-Api-Key");
 					assertThat(cisco.getPrefix()).isNull();

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,18 +23,15 @@ import org.springframework.web.bind.annotation.RestController;
 /** Device readings: store one, or read those of a home device (and metric) between two instants. */
 @RestController
 @RequestMapping("/api/v1/smart-home/readings")
+@RequiredArgsConstructor
 class DeviceReadingController {
 
-	private final DeviceReadingService service;
-
-	DeviceReadingController(DeviceReadingService service) {
-		this.service = service;
-	}
+	private final DeviceReadingService deviceReadingService;
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	DeviceReadingResponse save(@Valid @RequestBody SaveDeviceReadingRequest request) {
-		return DeviceReadingResponse.from(service.save(request.toCommand()));
+		return DeviceReadingResponse.from(deviceReadingService.save(request.toCommand()));
 	}
 
 	/**
@@ -43,7 +41,7 @@ class DeviceReadingController {
 	@GetMapping
 	List<DeviceReadingResponse> find(@RequestParam UUID homeDeviceId, @RequestParam Instant startDate,
 			@RequestParam Instant endDate, @RequestParam(required = false) @Nullable MetricType metric) {
-		return service.find(homeDeviceId, startDate, endDate, metric).stream().map(DeviceReadingResponse::from)
+		return deviceReadingService.find(homeDeviceId, startDate, endDate, metric).stream().map(DeviceReadingResponse::from)
 				.toList();
 	}
 }

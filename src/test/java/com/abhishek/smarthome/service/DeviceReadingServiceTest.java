@@ -25,19 +25,19 @@ class DeviceReadingServiceTest {
 	private static final Instant NOW = Instant.parse("2026-09-27T10:05:30Z");
 	private static final UUID HOME_DEVICE_ID = UUID.randomUUID();
 
-	private final DeviceReadingRepository repository = mock(DeviceReadingRepository.class);
+	private final DeviceReadingRepository deviceReadingRepository = mock(DeviceReadingRepository.class);
 	private final HomeDeviceService homeDeviceService = mock(HomeDeviceService.class);
-	private final DeviceReadingService service = new DeviceReadingService(repository, homeDeviceService,
+	private final DeviceReadingService deviceReadingService = new DeviceReadingService(deviceReadingRepository, homeDeviceService,
 			Clock.fixed(NOW, ZoneOffset.UTC));
 
 	@Test
 	void shouldSaveReadingWithCollectedAtNow() {
 		// given
-		given(repository.save(any(DeviceReading.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(deviceReadingRepository.save(any(DeviceReading.class))).willAnswer(invocation -> invocation.getArgument(0));
 		Instant time = Instant.parse("2026-09-27T10:05:00Z");
 
 		// when
-		DeviceReading saved = service.save(
+		DeviceReading saved = deviceReadingService.save(
 				new SaveDeviceReadingCommand(HOME_DEVICE_ID, MetricType.ENERGY, time, "12.345", "kWh"));
 
 		// then
@@ -55,34 +55,34 @@ class DeviceReadingServiceTest {
 		given(homeDeviceService.get(HOME_DEVICE_ID)).willThrow(new HomeDeviceNotFoundException(HOME_DEVICE_ID));
 
 		// when / then
-		assertThatThrownBy(() -> service.save(new SaveDeviceReadingCommand(HOME_DEVICE_ID, MetricType.POWER, NOW, "1", "W")))
+		assertThatThrownBy(() -> deviceReadingService.save(new SaveDeviceReadingCommand(HOME_DEVICE_ID, MetricType.POWER, NOW, "1", "W")))
 				.isInstanceOf(HomeDeviceNotFoundException.class);
-		then(repository).shouldHaveNoInteractions();
+		then(deviceReadingRepository).shouldHaveNoInteractions();
 	}
 
 	@Test
 	void shouldRejectRange_whenStartNotBeforeEnd() {
-		assertThatThrownBy(() -> service.find(HOME_DEVICE_ID, NOW, NOW, null))
+		assertThatThrownBy(() -> deviceReadingService.find(HOME_DEVICE_ID, NOW, NOW, null))
 				.isInstanceOf(InvalidTimeRangeException.class);
-		assertThatThrownBy(() -> service.find(HOME_DEVICE_ID, NOW, NOW.minusSeconds(1), null))
+		assertThatThrownBy(() -> deviceReadingService.find(HOME_DEVICE_ID, NOW, NOW.minusSeconds(1), null))
 				.isInstanceOf(InvalidTimeRangeException.class);
-		then(repository).shouldHaveNoInteractions();
+		then(deviceReadingRepository).shouldHaveNoInteractions();
 	}
 
 	@Test
 	void shouldQueryAllMetricsOrOneMetric() {
 		// given
 		Instant start = NOW.minusSeconds(3600);
-		given(repository.findInRange(HOME_DEVICE_ID, start, NOW)).willReturn(List.of());
-		given(repository.findInRange(HOME_DEVICE_ID, MetricType.POWER, start, NOW)).willReturn(List.of());
+		given(deviceReadingRepository.findInRange(HOME_DEVICE_ID, start, NOW)).willReturn(List.of());
+		given(deviceReadingRepository.findInRange(HOME_DEVICE_ID, MetricType.POWER, start, NOW)).willReturn(List.of());
 
 		// when
-		service.find(HOME_DEVICE_ID, start, NOW, null);
-		service.find(HOME_DEVICE_ID, start, NOW, MetricType.POWER);
+		deviceReadingService.find(HOME_DEVICE_ID, start, NOW, null);
+		deviceReadingService.find(HOME_DEVICE_ID, start, NOW, MetricType.POWER);
 
 		// then
-		then(repository).should().findInRange(HOME_DEVICE_ID, start, NOW);
-		then(repository).should().findInRange(HOME_DEVICE_ID, MetricType.POWER, start, NOW);
+		then(deviceReadingRepository).should().findInRange(HOME_DEVICE_ID, start, NOW);
+		then(deviceReadingRepository).should().findInRange(HOME_DEVICE_ID, MetricType.POWER, start, NOW);
 	}
 
 	@Test
@@ -90,16 +90,16 @@ class DeviceReadingServiceTest {
 		// given: POWER at 10:00 already stored
 		Instant from = Instant.parse("2026-09-27T10:00:00Z");
 		DeviceReading existing = DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, from, "1", "W", NOW);
-		given(repository.findInRange(HOME_DEVICE_ID, from, NOW)).willReturn(List.of(existing));
+		given(deviceReadingRepository.findInRange(HOME_DEVICE_ID, from, NOW)).willReturn(List.of(existing));
 		DeviceReading duplicate = DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, from, "2", "W", NOW);
 		DeviceReading fresh = DeviceReading.record(HOME_DEVICE_ID, MetricType.SWITCH, from, "ON", "on/off", NOW);
 
 		// when
-		int stored = service.saveCollected(HOME_DEVICE_ID, List.of(duplicate, fresh), from, NOW);
+		int stored = deviceReadingService.saveCollected(HOME_DEVICE_ID, List.of(duplicate, fresh), from, NOW);
 
 		// then
 		assertThat(stored).isEqualTo(1);
-		then(repository).should().saveAll(List.of(fresh));
+		then(deviceReadingRepository).should().saveAll(List.of(fresh));
 		then(homeDeviceService).should().recordRun(HOME_DEVICE_ID, NOW);
 	}
 }

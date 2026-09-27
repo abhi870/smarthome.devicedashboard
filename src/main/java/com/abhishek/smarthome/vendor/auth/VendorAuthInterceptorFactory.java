@@ -11,7 +11,7 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
  */
 public interface VendorAuthInterceptorFactory {
 
-	AuthType type();
+	AuthType getAuthType();
 
 	ClientHttpRequestInterceptor create(VendorCode vendor, AuthProperties auth);
 }

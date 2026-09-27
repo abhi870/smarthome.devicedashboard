@@ -3,9 +3,11 @@ package com.abhishek.smarthome.dto.input.home;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /** Body of {@code POST /api/v1/smart-home/homes/register}. */
+@Getter
 public final class RegisterHomeRequest {
 
 	public static final String DEFAULT_TIMEZONE = "UTC";
@@ -22,15 +24,7 @@ public final class RegisterHomeRequest {
 		this.timezone = timezone;
 	}
 
-	public String getName() {
-		return name;
-	}
-
 	public String getTimezoneOrDefault() {
 		return timezone == null || timezone.isBlank() ? DEFAULT_TIMEZONE : timezone;
-	}
-
-	public @Nullable String getTimezone() {
-		return timezone;
 	}
 }

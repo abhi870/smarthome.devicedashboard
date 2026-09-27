@@ -13,7 +13,9 @@ import jakarta.persistence.Version;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,6 +31,7 @@ import org.jspecify.annotations.Nullable;
 @Table(name = "home_device", uniqueConstraints = @UniqueConstraint(name = "uk_home_device_device_external_id",
 		columnNames = { "device_id", "external_device_id" }))
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class HomeDevice {
 
 	@Id
@@ -72,10 +75,6 @@ public class HomeDevice {
 
 	@Version
 	private long version;
-
-	protected HomeDevice() {
-		// for JPA
-	}
 
 	public static final int MIN_POLLING_INTERVAL_SECONDS = 60;
 	public static final int MAX_POLLING_INTERVAL_SECONDS = 86_400;

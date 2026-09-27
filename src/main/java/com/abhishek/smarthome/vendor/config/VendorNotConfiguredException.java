@@ -8,6 +8,6 @@ public class VendorNotConfiguredException extends RuntimeException {
 
 	public VendorNotConfiguredException(VendorCode vendor) {
 		super("Vendor '%s' is not configured; add smarthome.vendors.%s to application.yaml"
-				.formatted(vendor, vendor.code()));
+				.formatted(vendor, vendor.getCode()));
 	}
 }

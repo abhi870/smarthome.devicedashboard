@@ -18,29 +18,29 @@ import org.junit.jupiter.api.Test;
 
 class VendorAuthRegistryTest {
 
-	private final VendorConfigProvider config = new VendorConfigProvider(new SmartHomeProperties(Map.of(
+	private final VendorConfigProvider vendorConfigProvider = new VendorConfigProvider(new SmartHomeProperties(Map.of(
 			VendorCode.SAMSUNG, vendor("X-API-Key", null, "samsung-key"),
 			VendorCode.AMAZON, vendor("Authorization", "Bearer ", "amazon-key"))));
 
 	@Test
 	void shouldBuildInterceptorForEachConfiguredVendor() {
 		// when
-		VendorAuthRegistry registry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), config);
+		VendorAuthRegistry vendorAuthRegistry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), vendorConfigProvider);
 
 		// then
-		assertThat(registry.interceptorFor(VendorCode.SAMSUNG)).isInstanceOf(ApiKeyHeaderInterceptor.class)
+		assertThat(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).isInstanceOf(ApiKeyHeaderInterceptor.class)
 				.hasToString("ApiKeyHeaderInterceptor[header=X-API-Key, value=****]");
-		assertThat(registry.interceptorFor(VendorCode.AMAZON))
+		assertThat(vendorAuthRegistry.interceptorFor(VendorCode.AMAZON))
 				.hasToString("ApiKeyHeaderInterceptor[header=Authorization, value=****]");
 	}
 
 	@Test
 	void shouldThrowNotConfigured_whenVendorHasNoConfig() {
 		// given
-		VendorAuthRegistry registry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), config);
+		VendorAuthRegistry vendorAuthRegistry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), vendorConfigProvider);
 
 		// when / then
-		assertThatThrownBy(() -> registry.interceptorFor(VendorCode.CISCO))
+		assertThatThrownBy(() -> vendorAuthRegistry.interceptorFor(VendorCode.CISCO))
 				.isInstanceOf(VendorNotConfiguredException.class)
 				.hasMessageContaining("smarthome.vendors.cisco");
 	}
@@ -48,7 +48,7 @@ class VendorAuthRegistryTest {
 	@Test
 	void shouldFailFast_whenNoFactoryForConfiguredAuthType() {
 		// when / then
-		assertThatThrownBy(() -> new VendorAuthRegistry(List.of(), config))
+		assertThatThrownBy(() -> new VendorAuthRegistry(List.of(), vendorConfigProvider))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("No auth factory for type API_KEY_HEADER")
 				.hasMessageContaining("SAMSUNG");
@@ -58,7 +58,7 @@ class VendorAuthRegistryTest {
 	void shouldFailFast_whenTwoFactoriesClaimSameType() {
 		// when / then
 		assertThatThrownBy(() -> new VendorAuthRegistry(
-				List.of(new ApiKeyHeaderInterceptorFactory(), new ApiKeyHeaderInterceptorFactory()), config))
+				List.of(new ApiKeyHeaderInterceptorFactory(), new ApiKeyHeaderInterceptorFactory()), vendorConfigProvider))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("Duplicate auth factories for type API_KEY_HEADER");
 	}

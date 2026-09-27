@@ -25,7 +25,7 @@ public enum MetricType {
 	}
 
 	/** The canonical unit every stored value of this metric is in. */
-	public String unit() {
+	public String getUnit() {
 		return unit;
 	}
 }

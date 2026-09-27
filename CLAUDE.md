@@ -29,7 +29,7 @@ Core capabilities (all must work end to end and be reviewable locally):
 | DB (default) | PostgreSQL via `compose.yaml` + `spring-boot-docker-compose` | Started automatically by `spring-boot:run`. |
 | DB (fallback) | H2 in-memory + `spring-boot-h2console` | Profile `h2` for running without Docker; console at `/h2-console`. |
 | Persistence | Spring Data JPA (Hibernate 7) | Keep SQL portable across Postgres & H2. |
-| Boilerplate | Lombok (present) | Allowed only on JPA entities/services (see §6). DTOs are plain classes. |
+| Boilerplate | Lombok | Use it wherever it removes boilerplate (see §6). |
 | Tests | `spring-boot-starter-webmvc-test`, `-data-jpa-test` (JUnit 5, AssertJ, Mockito, MockMvc) | |
 
 **Add when first needed** (propose the pom change in the same PR, don't add speculatively):
@@ -102,12 +102,12 @@ Rules (enforce with an ArchUnit test once added):
   `internal = external × factor + offset` (`factor`/`offset` are `NUMERIC(30,15)` / `BigDecimal`, column
   `value_offset`). Admin sends either the recipe or a `conversion` preset (`Conversion` enum only fills the recipe;
   mixing both → 400); neither = identity. Rules (400 via `InvalidMetricMappingException`): `internalUnit` must equal
-  `metric.unit()` (so readings of one metric are comparable across vendors), `factor != 0`, SWITCH is identity,
+  `metric.getUnit()` (so readings of one metric are comparable across vendors), `factor != 0`, SWITCH is identity,
   optional `sample {external, expected}` must convert within `0.01 + 1e-4·|expected|`, an external metric is mapped
   at most once per device. Replace the full set with `PUT /devices/{id}/mappings`. Adding a vendor/unit = data only.
 - **MetricType** (`metrics.domain`, defines each metric's canonical/internal unit): `TEMPERATURE` (C), `POWER` (W), `ENERGY` (kWh), `HUMIDITY` (%), `RUNTIME` (min),
   `DOOR_OPEN_COUNT`, `SWITCH` (on/off stored as 1/0; text like `on`/`OFF`/`ACTIVE`/`IDLE` parsed by `SwitchState`,
-  conversion `NONE`); each has one canonical `unit()`. **Conversion**: `NONE|F_TO_C|K_TO_C|KW_TO_W|WH_TO_KWH|
+  conversion `NONE`); each has one canonical `getUnit()`. **Conversion**: `NONE|F_TO_C|K_TO_C|KW_TO_W|WH_TO_KWH|
   SECONDS_TO_MINUTES|HOURS_TO_MINUTES`, presets only (`externalUnit`, `factor`, `offset`). New unit = a mapping with its own factor/offset, no code.
 - **HomeDevice** (entity, table `home_device`; the physical appliance a user registered): `UUID id`,
   `@ManyToOne(LAZY)` `home` and `device` (HomeDevice owns both FKs; vendor is `device.vendor`), `externalDeviceId`
@@ -137,7 +137,7 @@ Rules (enforce with an ArchUnit test once added):
   `fetchMetrics(externalDeviceId, from, to)` → per-minute `RawMetricSample(time, Map<String,Object> metrics)` in
   `[from, to)`, all pages followed via `VendorPaginator`. Uses `VendorClientFactory.clientFor(code)`; bodies read as
   plain maps. Flattening: Samsung `components.main.<capability>.<attribute>.value` → `<capability>.<attribute>`;
-  Amazon `properties[{name,value}]` → `name`; Cisco flat keys minus `ts`. Names/units stay vendor-specific.
+  Amazon (one call per device: `/devices/{id}/metrics`) `properties[{name,value}]` → `name`; Cisco flat keys minus `ts`. Names/units stay vendor-specific.
 - **Collection** (`metrics.domain.service.MetricCollectionService`, driven by `schedulers.DeviceMetricFetchScheduler`):
   due targets (`HomeDeviceService.findDueTargets(batch)` → `CollectionTarget` snapshots incl. mappings) → range
   `[lastRunAt ?? now - interval, now)` capped at 24 h → adapter fetch (no transaction) → `DeviceReadingConverter`
@@ -145,14 +145,16 @@ Rules (enforce with an ArchUnit test once added):
   skipped with a warning) → `DeviceReadingService.saveCollected` (one transaction: skip existing
   (metric, time), `saveAll`, `recordRun` → `nextRunAt = now + interval`). On failure `scheduleRetry(retryDelay)`
   (capped at the interval, `lastRunAt` unchanged so the gap is re-fetched); other devices continue.
-- **Mock vendor APIs** (served by `../vendors` at `http://localhost:8081/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth headers
-  (`X-API-Key`, `Authorization: Bearer`, `X-Cisco-Api-Key`), range params (ISO / epoch-ms / since+limit), time formats and payload shapes; one sample
-  per minute, deterministic from `Clock` + device type.
+- **Mock vendor APIs** (served by `../vendors` at `http://localhost:8081/api/v1/{samsung|amazon|cisco}/devices...`):
+  one call per device, deliberately different auth headers (`X-API-Key`, `Authorization: Bearer`, `X-Cisco-Api-Key`),
+  range/paging params (ISO + page/size, epoch-ms + nextToken, epoch-s since/limit + next_since), time formats and
+  payload shapes. Data is a recorded day per device (1440 per-minute samples) replayed for any date, energy counters
+  never decreasing.
 - **DeviceReading** (entity, table `device_reading`, `metrics.domain`): `UUID id`, `homeDeviceId` (plain UUID column
   with FK — no JPA relationship, hot path), `metric` (`MetricType`), `time` (vendor time; column `reading_time`),
   `value` (string, column `reading_value VARCHAR(100)`: a number for numeric metrics — reports use
   `CAST(reading_value AS DOUBLE PRECISION)` — or a state like `ON` for SWITCH), `unit` (string, e.g. `W`, `C`,
-  `on/off`; defaults to `metric.unit()`), `collectedAt`. Append-only, no `@Version`. Unique index `(home_device_id, metric, reading_time DESC)` —
+  `on/off`; defaults to `metric.getUnit()`), `collectedAt`. Append-only, no `@Version`. Unique index `(home_device_id, metric, reading_time DESC)` —
   idempotent collection and fast per-device-per-metric report queries; index `(home_device_id, reading_time DESC)`.
   API: `POST /readings` body `{homeDeviceId, metric, time, value, unit?}` (201; duplicate → 409),
   `GET /readings?homeDeviceId=&startDate=&endDate=[&metric=]` (ISO instants, `[start, end)`, newest first).
@@ -200,7 +202,11 @@ Rules (enforce with an ArchUnit test once added):
   configuration properties are regular classes: `private final` fields, one constructor, JavaBean getters
   (`getX()` / `isX()`), and `equals`/`hashCode`/`toString` only when needed (never print secrets).
   Entities → classes with protected no-arg ctor.
-- Lombok: allowed `@Getter`, `@RequiredArgsConstructor`, `@Slf4j`, `@Builder` on entities/services.
+- Lombok wherever it removes boilerplate: `@Getter` instead of hand-written getters (DTOs, commands, config
+  properties, entities), `@RequiredArgsConstructor` for constructor injection and plain all-final value classes,
+  `@NoArgsConstructor(access = PROTECTED)` for the JPA constructor, `@Slf4j` for logging. Keep a hand-written
+  constructor only when it does work (validation, defensive copies, `@JsonCreator`/`@DefaultValue` parameters).
+  Never `@Data`/`@Setter`/`@EqualsAndHashCode` on entities; keep secret-masking `toString()` overrides.
   Forbidden: `@Data` / `@EqualsAndHashCode` on entities (breaks JPA identity), `@Setter` on entities
   (use intention-revealing methods like `device.changeInterval(..)`), `@SneakyThrows`.
 - Constructor injection only; `final` fields; no field `@Autowired`.

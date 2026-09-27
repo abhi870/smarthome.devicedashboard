@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * A <b>supported device model</b> in the catalogue, created by an admin (e.g. "Amazon Smart AC 12K", model
@@ -34,6 +35,7 @@ import lombok.Getter;
 @Table(name = "device", uniqueConstraints = @UniqueConstraint(name = "uk_device_vendor_model",
 		columnNames = { "vendor_id", "model" }))
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class Device {
 
 	@Id
@@ -65,10 +67,6 @@ public class Device {
 
 	@Version
 	private long version;
-
-	protected Device() {
-		// for JPA
-	}
 
 	public static Device register(Vendor vendor, DeviceType deviceType, String model, String name,
 			List<MetricMapping> metricMappings, Instant now) {

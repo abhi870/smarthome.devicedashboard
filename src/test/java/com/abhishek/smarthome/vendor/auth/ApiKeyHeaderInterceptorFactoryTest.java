@@ -22,7 +22,7 @@ class ApiKeyHeaderInterceptorFactoryTest {
 
 	@Test
 	void shouldHandleApiKeyHeaderType() {
-		assertThat(factory.type()).isEqualTo(AuthType.API_KEY_HEADER);
+		assertThat(factory.getAuthType()).isEqualTo(AuthType.API_KEY_HEADER);
 	}
 
 	@Test

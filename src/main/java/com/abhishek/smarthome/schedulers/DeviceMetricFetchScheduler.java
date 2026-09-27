@@ -2,6 +2,7 @@ package com.abhishek.smarthome.schedulers;
 
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.service.MetricCollectionService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,20 +19,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @ConditionalOnProperty(prefix = "smarthome.collection", name = "enabled", havingValue = "true", matchIfMissing = true)
+@RequiredArgsConstructor
 public class DeviceMetricFetchScheduler {
 
-	private final MetricCollectionService collectionService;
-	private final CollectionProperties properties;
-
-	public DeviceMetricFetchScheduler(MetricCollectionService collectionService, CollectionProperties properties) {
-		this.collectionService = collectionService;
-		this.properties = properties;
-	}
+	private final MetricCollectionService metricCollectionService;
+	private final CollectionProperties collectionProperties;
 
 	@Scheduled(fixedDelayString = "PT1S", initialDelayString = "PT5S")
 	public void fetchDueDeviceMetrics() {
 		try {
-			collectionService.collectDue(properties.getBatchSize(), properties.getRetryDelay());
+			metricCollectionService.collectDue(collectionProperties.getBatchSize(), collectionProperties.getRetryDelay());
 		}
 		catch (RuntimeException e) {
 			log.error("Metrics collection tick failed", e);

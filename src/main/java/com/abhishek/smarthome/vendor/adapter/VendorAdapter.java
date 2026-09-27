@@ -10,7 +10,7 @@ import java.util.List;
  */
 public interface VendorAdapter {
 
-	VendorCode vendorCode();
+	VendorCode getVendorCode();
 
 	/**
 	 * Per-minute samples of one device with {@code from <= time < to}, oldest first, following all pages.

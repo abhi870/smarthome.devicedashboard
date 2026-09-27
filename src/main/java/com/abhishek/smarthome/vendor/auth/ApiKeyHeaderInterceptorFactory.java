@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 class ApiKeyHeaderInterceptorFactory implements VendorAuthInterceptorFactory {
 
 	@Override
-	public AuthType type() {
+	public AuthType getAuthType() {
 		return AuthType.API_KEY_HEADER;
 	}
 

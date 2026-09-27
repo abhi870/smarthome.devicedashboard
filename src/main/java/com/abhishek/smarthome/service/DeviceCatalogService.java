@@ -25,7 +25,7 @@ public class DeviceCatalogService {
 
 	private static final Sort BY_NAME = Sort.by("name");
 
-	private final DeviceRepository repository;
+	private final DeviceRepository deviceRepository;
 	private final VendorService vendorService;
 	private final Clock clock;
 
@@ -37,7 +37,7 @@ public class DeviceCatalogService {
 	@Transactional
 	public Device register(RegisterDeviceCommand command) {
 		Vendor vendor = vendorService.get(command.getVendorId());
-		return repository.save(Device.register(vendor, command.getDeviceType(), command.getModel(), command.getName(),
+		return deviceRepository.save(Device.register(vendor, command.getDeviceType(), command.getModel(), command.getName(),
 				command.getMetricMappings(), clock.instant()));
 	}
 
@@ -58,20 +58,20 @@ public class DeviceCatalogService {
 	 * @throws DeviceNotFoundException if no catalogue device has this id
 	 */
 	public Device get(UUID id) {
-		return repository.findWithVendorById(id).orElseThrow(() -> new DeviceNotFoundException(id));
+		return deviceRepository.findWithVendorById(id).orElseThrow(() -> new DeviceNotFoundException(id));
 	}
 
 	/** Supported devices, optionally filtered by vendor and/or type, ordered by name. */
 	public List<Device> list(@Nullable UUID vendorId, @Nullable DeviceType deviceType) {
 		if (vendorId != null && deviceType != null) {
-			return repository.findByVendorIdAndDeviceType(vendorId, deviceType, BY_NAME);
+			return deviceRepository.findByVendorIdAndDeviceType(vendorId, deviceType, BY_NAME);
 		}
 		if (vendorId != null) {
-			return repository.findByVendorId(vendorId, BY_NAME);
+			return deviceRepository.findByVendorId(vendorId, BY_NAME);
 		}
 		if (deviceType != null) {
-			return repository.findByDeviceType(deviceType, BY_NAME);
+			return deviceRepository.findByDeviceType(deviceType, BY_NAME);
 		}
-		return repository.findAllBy(BY_NAME);
+		return deviceRepository.findAllBy(BY_NAME);
 	}
 }

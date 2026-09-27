@@ -37,12 +37,12 @@ class VendorPagingOverHttpTest {
 		VendorProperties samsung = new VendorProperties(URI.create("http://localhost:8081/api/v1/samsung"),
 				Duration.ofSeconds(1), Duration.ofSeconds(2),
 				new AuthProperties(AuthType.API_KEY_HEADER, "X-API-Key", null, "samsung-key"));
-		VendorAuthRegistry auth = mock(VendorAuthRegistry.class);
-		given(auth.interceptorFor(VendorCode.SAMSUNG)).willReturn((request, body, execution) -> {
+		VendorAuthRegistry vendorAuthRegistry = mock(VendorAuthRegistry.class);
+		given(vendorAuthRegistry.interceptorFor(VendorCode.SAMSUNG)).willReturn((request, body, execution) -> {
 			request.getHeaders().set("X-API-Key", "samsung-key");
 			return execution.execute(request, body);
 		});
-		RestClient.Builder builder = VendorClientFactory.configure(RestClient.builder(), samsung, auth,
+		RestClient.Builder builder = VendorClientFactory.configure(RestClient.builder(), samsung, vendorAuthRegistry,
 				VendorCode.SAMSUNG);
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
 		server.expect(requestTo(METRICS + "0")).andExpect(header("X-API-Key", "samsung-key"))

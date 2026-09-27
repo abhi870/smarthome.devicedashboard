@@ -40,7 +40,7 @@ class HomeDeviceControllerTest {
 	MockMvcTester mvc;
 
 	@MockitoBean
-	HomeDeviceService service;
+	HomeDeviceService homeDeviceService;
 
 	private final Home home = Home.register("My home", "Asia/Kolkata", NOW);
 	private final Device device = Device.register(Vendor.register(VendorCode.AMAZON, "Amazon", NOW), DeviceType.AC,
@@ -56,7 +56,7 @@ class HomeDeviceControllerTest {
 	void shouldReturn201WithLocationAndBody_whenRegistered() {
 		// given
 		HomeDevice homeDevice = HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW);
-		given(service.register(any())).willReturn(homeDevice);
+		given(homeDeviceService.register(any())).willReturn(homeDevice);
 
 		// when
 		var response = assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON)
@@ -73,7 +73,7 @@ class HomeDeviceControllerTest {
 	@Test
 	void shouldDefaultPollingIntervalTo300_whenOmitted() {
 		// given
-		given(service.register(any()))
+		given(homeDeviceService.register(any()))
 				.willReturn(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 300, NOW));
 
 		// when
@@ -81,7 +81,7 @@ class HomeDeviceControllerTest {
 				.hasStatus(HttpStatus.CREATED);
 
 		// then
-		then(service).should().register(argThat(command -> command.getPollingIntervalSeconds() == 300));
+		then(homeDeviceService).should().register(argThat(command -> command.getPollingIntervalSeconds() == 300));
 	}
 
 	@Test
@@ -94,7 +94,7 @@ class HomeDeviceControllerTest {
 	@Test
 	void shouldReturn404_whenCatalogueDeviceUnknown() {
 		// given
-		given(service.register(any())).willThrow(new DeviceNotFoundException(device.getId()));
+		given(homeDeviceService.register(any())).willThrow(new DeviceNotFoundException(device.getId()));
 
 		// when / then
 		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("")))
@@ -105,7 +105,7 @@ class HomeDeviceControllerTest {
 	void shouldReturn404_whenHomeDeviceUnknown() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.get(id)).willThrow(new HomeDeviceNotFoundException(id));
+		given(homeDeviceService.get(id)).willThrow(new HomeDeviceNotFoundException(id));
 
 		// when / then
 		assertThat(mvc.get().uri(BASE + "/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
@@ -113,7 +113,7 @@ class HomeDeviceControllerTest {
 	@Test
 	void shouldListHomeDevices_filteredByHome() {
 		// given
-		given(service.list(home.getId()))
+		given(homeDeviceService.list(home.getId()))
 				.willReturn(List.of(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW)));
 
 		// when / then
@@ -126,7 +126,7 @@ class HomeDeviceControllerTest {
 	@Test
 	void shouldListAllHomeDevices_whenNoHomeGiven() {
 		// given
-		given(service.list(null)).willReturn(List.of());
+		given(homeDeviceService.list(null)).willReturn(List.of());
 
 		// when / then
 		assertThat(mvc.get().uri(BASE)).hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(0);
@@ -137,7 +137,7 @@ class HomeDeviceControllerTest {
 		// given
 		HomeDevice homeDevice = HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW);
 		homeDevice.changePollingInterval(900, NOW);
-		given(service.changePollingInterval(homeDevice.getId(), 900)).willReturn(homeDevice);
+		given(homeDeviceService.changePollingInterval(homeDevice.getId(), 900)).willReturn(homeDevice);
 
 		// when / then
 		var response = assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", homeDevice.getId())
@@ -151,7 +151,7 @@ class HomeDeviceControllerTest {
 	void shouldReturn400_whenPollingIntervalOutOfRangeOrMissing() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.changePollingInterval(id, 10)).willThrow(new InvalidPollingIntervalException(10, 60, 86_400));
+		given(homeDeviceService.changePollingInterval(id, 10)).willThrow(new InvalidPollingIntervalException(10, 60, 86_400));
 
 		// when / then
 		assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", id).contentType(APPLICATION_JSON)

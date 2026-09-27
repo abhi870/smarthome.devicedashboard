@@ -33,13 +33,13 @@ class VendorControllerTest {
 	MockMvcTester mvc;
 
 	@MockitoBean
-	VendorService service;
+	VendorService vendorService;
 
 	@Test
 	void shouldReturn201WithLocationAndBody_whenRegistered() {
 		// given
 		Vendor vendor = Vendor.register(VendorCode.AMAZON, "Amazon", Instant.parse("2026-09-27T10:00:00Z"));
-		given(service.register(VendorCode.AMAZON, "Amazon")).willReturn(vendor);
+		given(vendorService.register(VendorCode.AMAZON, "Amazon")).willReturn(vendor);
 
 		// when
 		var response = assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content(BODY));
@@ -61,7 +61,7 @@ class VendorControllerTest {
 	@Test
 	void shouldReturn409_whenCodeAlreadyStored() {
 		// given
-		given(service.register(any(), any())).willThrow(new DataIntegrityViolationException("uk_vendor_code"));
+		given(vendorService.register(any(), any())).willThrow(new DataIntegrityViolationException("uk_vendor_code"));
 
 		// when / then
 		assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content(BODY))
@@ -72,7 +72,7 @@ class VendorControllerTest {
 	void shouldReturn404_whenVendorUnknown() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.get(id)).willThrow(new VendorNotFoundException(id));
+		given(vendorService.get(id)).willThrow(new VendorNotFoundException(id));
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/vendors/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
@@ -81,7 +81,7 @@ class VendorControllerTest {
 	void shouldListVendors() {
 		// given
 		Instant now = Instant.parse("2026-09-27T10:00:00Z");
-		given(service.list()).willReturn(List.of(Vendor.register(VendorCode.AMAZON, "Amazon", now),
+		given(vendorService.list()).willReturn(List.of(Vendor.register(VendorCode.AMAZON, "Amazon", now),
 				Vendor.register(VendorCode.SAMSUNG, "Samsung", now)));
 
 		// when / then

@@ -10,6 +10,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,22 +32,28 @@ public class DeviceReadingConverter {
 		List<DeviceReading> readings = new ArrayList<>();
 		for (RawMetricSample sample : samples) {
 			for (MetricMapping mapping : mappings) {
-				Object raw = sample.getMetrics().get(mapping.getExternalMetric());
-				if (raw == null) {
-					continue;
-				}
-				try {
-					double value = mapping.toCanonical(raw);
-					readings.add(DeviceReading.record(homeDeviceId, mapping.getMetric(), sample.getTime(),
-							format(mapping.getMetric(), value), mapping.getInternalUnit(), collectedAt));
-				}
-				catch (IllegalArgumentException e) {
-					log.warn("Skipping {} of home device {} at {}: {}", mapping.getExternalMetric(), homeDeviceId,
-							sample.getTime(), e.getMessage());
-				}
+				toReading(homeDeviceId, mapping, sample, collectedAt).ifPresent(readings::add);
 			}
 		}
 		return readings;
+	}
+
+	/** The reading for one mapping of one sample; empty if the vendor did not send it or it cannot be read. */
+	private Optional<DeviceReading> toReading(UUID homeDeviceId, MetricMapping mapping, RawMetricSample sample,
+			Instant collectedAt) {
+		Object raw = sample.getMetrics().get(mapping.getExternalMetric());
+		if (raw == null) {
+			return Optional.empty();
+		}
+		try {
+			String value = format(mapping.getMetric(), mapping.toCanonical(raw));
+			return Optional.of(DeviceReading.record(homeDeviceId, mapping.getMetric(), sample.getTime(), value,
+					mapping.getInternalUnit(), collectedAt));
+		}
+		catch (IllegalArgumentException e) {
+			log.warn("Skipping {} at {}: {}", mapping.getExternalMetric(), sample.getTime(), e.getMessage());
+			return Optional.empty();
+		}
 	}
 
 	/** SWITCH → {@code ON}/{@code OFF}; numbers → plain decimal text rounded to 6 places ({@code 100}, {@code 1.15}). */

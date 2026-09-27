@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * An appliance vendor the platform integrates with. {@link #code} links the stored vendor to its integration
@@ -24,6 +25,7 @@ import lombok.Getter;
 @Entity
 @Table(name = "vendor")
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class Vendor {
 
 	@Id
@@ -46,10 +48,6 @@ public class Vendor {
 	@OneToMany(mappedBy = "vendor")
 	@Getter(AccessLevel.NONE)
 	private List<Device> devices = new ArrayList<>();
-
-	protected Vendor() {
-		// for JPA
-	}
 
 	public static Vendor register(VendorCode code, String name, Instant now) {
 		Vendor vendor = new Vendor();

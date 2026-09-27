@@ -24,17 +24,17 @@ import org.springframework.web.client.RestClient;
 @Component
 public class VendorClientFactory {
 
-	private final Map<VendorCode, RestClient> clients;
+	private final Map<VendorCode, RestClient> restClientsByVendor;
 
-	public VendorClientFactory(VendorConfigProvider config, VendorAuthRegistry authRegistry) {
-		Map<VendorCode, RestClient> built = new EnumMap<>(VendorCode.class);
-		for (VendorCode vendor : config.configuredVendors()) {
-			VendorProperties properties = config.get(vendor);
-			built.put(vendor, configure(RestClient.builder(), properties, authRegistry, vendor).build());
+	public VendorClientFactory(VendorConfigProvider vendorConfigProvider, VendorAuthRegistry vendorAuthRegistry) {
+		Map<VendorCode, RestClient> restClients = new EnumMap<>(VendorCode.class);
+		for (VendorCode vendor : vendorConfigProvider.configuredVendors()) {
+			VendorProperties properties = vendorConfigProvider.get(vendor);
+			restClients.put(vendor, configure(RestClient.builder(), properties, vendorAuthRegistry, vendor).build());
 			log.info("Vendor client {} -> {} (connect {}, read {}, auth {})", vendor, properties.getBaseUrl(),
 					properties.getConnectTimeout(), properties.getReadTimeout(), properties.getAuth().getType());
 		}
-		this.clients = Collections.unmodifiableMap(built);
+		this.restClientsByVendor = Collections.unmodifiableMap(restClients);
 	}
 
 	/**
@@ -43,7 +43,7 @@ public class VendorClientFactory {
 	 * @throws VendorNotConfiguredException if the vendor has no {@code smarthome.vendors.<code>} configuration
 	 */
 	public RestClient clientFor(VendorCode vendor) {
-		RestClient client = clients.get(vendor);
+		RestClient client = restClientsByVendor.get(vendor);
 		if (client == null) {
 			throw new VendorNotConfiguredException(vendor);
 		}
@@ -52,11 +52,11 @@ public class VendorClientFactory {
 
 	/** Applies a vendor's settings to a builder. Package-private so tests can bind a mock server afterwards. */
 	static RestClient.Builder configure(RestClient.Builder builder, VendorProperties properties,
-			VendorAuthRegistry authRegistry, VendorCode vendor) {
+			VendorAuthRegistry vendorAuthRegistry, VendorCode vendor) {
 		return builder
 				.baseUrl(properties.getBaseUrl().toString())
 				.requestFactory(requestFactory(properties))
-				.requestInterceptor(authRegistry.interceptorFor(vendor));
+				.requestInterceptor(vendorAuthRegistry.interceptorFor(vendor));
 	}
 
 	static JdkClientHttpRequestFactory requestFactory(VendorProperties properties) {

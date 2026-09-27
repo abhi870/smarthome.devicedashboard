@@ -17,18 +17,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class VendorAuthRegistry {
 
-	private final Map<VendorCode, ClientHttpRequestInterceptor> interceptors = new EnumMap<>(VendorCode.class);
+	private final Map<VendorCode, ClientHttpRequestInterceptor> interceptorsByVendor = new EnumMap<>(VendorCode.class);
 
-	public VendorAuthRegistry(List<VendorAuthInterceptorFactory> factories, VendorConfigProvider config) {
-		Map<AuthType, VendorAuthInterceptorFactory> byType = indexByType(factories);
-		for (VendorCode vendor : config.configuredVendors()) {
-			AuthType type = config.get(vendor).getAuth().getType();
+	public VendorAuthRegistry(List<VendorAuthInterceptorFactory> authInterceptorFactories, VendorConfigProvider vendorConfigProvider) {
+		Map<AuthType, VendorAuthInterceptorFactory> byType = indexByType(authInterceptorFactories);
+		for (VendorCode vendor : vendorConfigProvider.configuredVendors()) {
+			AuthType type = vendorConfigProvider.get(vendor).getAuth().getType();
 			VendorAuthInterceptorFactory factory = byType.get(type);
 			if (factory == null) {
 				throw new IllegalStateException("No auth factory for type %s (vendor %s); available: %s"
 						.formatted(type, vendor, byType.keySet()));
 			}
-			interceptors.put(vendor, factory.create(vendor, config.get(vendor).getAuth()));
+			interceptorsByVendor.put(vendor, factory.create(vendor, vendorConfigProvider.get(vendor).getAuth()));
 		}
 	}
 
@@ -36,20 +36,20 @@ public class VendorAuthRegistry {
 	 * @throws VendorNotConfiguredException if the vendor has no configuration
 	 */
 	public ClientHttpRequestInterceptor interceptorFor(VendorCode vendor) {
-		ClientHttpRequestInterceptor interceptor = interceptors.get(vendor);
+		ClientHttpRequestInterceptor interceptor = interceptorsByVendor.get(vendor);
 		if (interceptor == null) {
 			throw new VendorNotConfiguredException(vendor);
 		}
 		return interceptor;
 	}
 
-	private static Map<AuthType, VendorAuthInterceptorFactory> indexByType(List<VendorAuthInterceptorFactory> factories) {
+	private static Map<AuthType, VendorAuthInterceptorFactory> indexByType(List<VendorAuthInterceptorFactory> authInterceptorFactories) {
 		Map<AuthType, VendorAuthInterceptorFactory> byType = new EnumMap<>(AuthType.class);
-		for (VendorAuthInterceptorFactory factory : factories) {
-			VendorAuthInterceptorFactory previous = byType.put(factory.type(), factory);
+		for (VendorAuthInterceptorFactory factory : authInterceptorFactories) {
+			VendorAuthInterceptorFactory previous = byType.put(factory.getAuthType(), factory);
 			if (previous != null) {
 				throw new IllegalStateException("Duplicate auth factories for type %s: %s and %s"
-						.formatted(factory.type(), previous.getClass().getSimpleName(),
+						.formatted(factory.getAuthType(), previous.getClass().getSimpleName(),
 								factory.getClass().getSimpleName()));
 			}
 		}

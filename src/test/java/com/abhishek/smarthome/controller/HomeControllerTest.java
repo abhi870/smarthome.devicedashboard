@@ -30,13 +30,13 @@ class HomeControllerTest {
 	MockMvcTester mvc;
 
 	@MockitoBean
-	HomeService service;
+	HomeService homeService;
 
 	@Test
 	void shouldReturn201WithLocationAndBody_whenRegistered() {
 		// given
 		Home home = Home.register("My home", "Asia/Kolkata", NOW);
-		given(service.register("My home", "Asia/Kolkata")).willReturn(home);
+		given(homeService.register("My home", "Asia/Kolkata")).willReturn(home);
 
 		// when
 		var response = assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON)
@@ -51,7 +51,7 @@ class HomeControllerTest {
 	@Test
 	void shouldDefaultTimezoneToUtc_whenOmitted() {
 		// given
-		given(service.register("My home", "UTC")).willReturn(Home.register("My home", "UTC", NOW));
+		given(homeService.register("My home", "UTC")).willReturn(Home.register("My home", "UTC", NOW));
 
 		// when / then
 		assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content("{\"name\":\"My home\"}"))
@@ -70,7 +70,7 @@ class HomeControllerTest {
 	void shouldReturn404_whenHomeUnknown() {
 		// given
 		UUID id = UUID.randomUUID();
-		given(service.get(id)).willThrow(new HomeNotFoundException(id));
+		given(homeService.get(id)).willThrow(new HomeNotFoundException(id));
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/homes/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
@@ -78,7 +78,7 @@ class HomeControllerTest {
 	@Test
 	void shouldListHomes() {
 		// given
-		given(service.list()).willReturn(List.of(Home.register("My home", "UTC", NOW)));
+		given(homeService.list()).willReturn(List.of(Home.register("My home", "UTC", NOW)));
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/homes"))

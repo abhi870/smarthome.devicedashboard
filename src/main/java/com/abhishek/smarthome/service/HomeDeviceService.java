@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class HomeDeviceService {
 
-	private final HomeDeviceRepository repository;
+	private final HomeDeviceRepository homeDeviceRepository;
 	private final HomeService homeService;
 	private final DeviceCatalogService deviceCatalogService;
 	private final Clock clock;
@@ -42,7 +42,7 @@ public class HomeDeviceService {
 	public HomeDevice register(RegisterHomeDeviceCommand command) {
 		Home home = homeService.get(command.getHomeId());
 		Device device = deviceCatalogService.get(command.getDeviceId());
-		HomeDevice homeDevice = repository.save(HomeDevice.register(home, device, command.getExternalDeviceId(),
+		HomeDevice homeDevice = homeDeviceRepository.save(HomeDevice.register(home, device, command.getExternalDeviceId(),
 				command.getName(), command.getPollingIntervalSeconds(), clock.instant()));
 		log.info("Registered home device {} ({} {} {}) in home {}", homeDevice.getId(), device.getVendor().getCode(),
 				device.getModel(), homeDevice.getExternalDeviceId(), home.getId());
@@ -52,7 +52,7 @@ public class HomeDeviceService {
 	/** Home devices, optionally of one home, ordered by name. */
 	public List<HomeDevice> list(@Nullable UUID homeId) {
 		Sort byName = Sort.by("name");
-		return homeId == null ? repository.findAllBy(byName) : repository.findByHomeId(homeId, byName);
+		return homeId == null ? homeDeviceRepository.findAllBy(byName) : homeDeviceRepository.findByHomeId(homeId, byName);
 	}
 
 	/**
@@ -70,7 +70,7 @@ public class HomeDeviceService {
 
 	/** Enabled home devices due for collection now, most overdue first (for the collection scheduler). */
 	public List<HomeDevice> findDue(int limit) {
-		return repository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(clock.instant(),
+		return homeDeviceRepository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(clock.instant(),
 				Limit.of(limit));
 	}
 
@@ -103,6 +103,6 @@ public class HomeDeviceService {
 	 * @throws HomeDeviceNotFoundException if no home device has this id
 	 */
 	public HomeDevice get(UUID id) {
-		return repository.findWithDeviceById(id).orElseThrow(() -> new HomeDeviceNotFoundException(id));
+		return homeDeviceRepository.findWithDeviceById(id).orElseThrow(() -> new HomeDeviceNotFoundException(id));
 	}
 }

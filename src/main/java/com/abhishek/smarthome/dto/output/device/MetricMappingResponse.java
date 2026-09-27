@@ -3,8 +3,10 @@ package com.abhishek.smarthome.dto.output.device;
 import com.abhishek.smarthome.entity.MetricMapping;
 import com.abhishek.smarthome.enums.MetricType;
 import java.math.BigDecimal;
+import lombok.Getter;
 
 /** A stored mapping: the full recipe {@code internal = external × factor + offset}. */
+@Getter
 public final class MetricMappingResponse {
 
 	private final String externalMetric;
@@ -31,29 +33,5 @@ public final class MetricMappingResponse {
 
 	public static MetricMappingResponse from(MetricMapping mapping) {
 		return new MetricMappingResponse(mapping);
-	}
-
-	public String getExternalMetric() {
-		return externalMetric;
-	}
-
-	public MetricType getMetric() {
-		return metric;
-	}
-
-	public String getExternalUnit() {
-		return externalUnit;
-	}
-
-	public String getInternalUnit() {
-		return internalUnit;
-	}
-
-	public BigDecimal getFactor() {
-		return factor;
-	}
-
-	public BigDecimal getOffset() {
-		return offset;
 	}
 }

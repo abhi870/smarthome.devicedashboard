@@ -4,6 +4,7 @@ import com.abhishek.smarthome.enums.VendorCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
+import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -13,6 +14,7 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("smarthome")
+@Getter
 public final class SmartHomeProperties {
 
 	@NotEmpty
@@ -20,9 +22,5 @@ public final class SmartHomeProperties {
 
 	public SmartHomeProperties(Map<VendorCode, VendorProperties> vendors) {
 		this.vendors = vendors;
-	}
-
-	public Map<VendorCode, VendorProperties> getVendors() {
-		return vendors;
 	}
 }

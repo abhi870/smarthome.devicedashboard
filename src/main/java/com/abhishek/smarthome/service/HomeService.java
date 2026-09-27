@@ -17,23 +17,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class HomeService {
 
-	private final HomeRepository repository;
+	private final HomeRepository homeRepository;
 	private final Clock clock;
 
 	@Transactional
 	public Home register(String name, String timezone) {
-		return repository.save(Home.register(name, timezone, clock.instant()));
+		return homeRepository.save(Home.register(name, timezone, clock.instant()));
 	}
 
 	/** All homes, ordered by name. */
 	public List<Home> list() {
-		return repository.findAll(Sort.by("name"));
+		return homeRepository.findAll(Sort.by("name"));
 	}
 
 	/**
 	 * @throws HomeNotFoundException if no home has this id
 	 */
 	public Home get(UUID id) {
-		return repository.findById(id).orElseThrow(() -> new HomeNotFoundException(id));
+		return homeRepository.findById(id).orElseThrow(() -> new HomeNotFoundException(id));
 	}
 }

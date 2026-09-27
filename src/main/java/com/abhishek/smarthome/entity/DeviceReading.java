@@ -4,7 +4,9 @@ import com.abhishek.smarthome.enums.MetricType;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * The value of one metric of a home device at a point in time, e.g. Bedroom AC / POWER / 10:05 / {@code "1150.5"}
@@ -18,6 +20,7 @@ import lombok.Getter;
                 unique = true),
         @Index(name = "ix_device_reading_device_time", columnList = "home_device_id, reading_time DESC")})
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
 public class DeviceReading {
 
     public static final int MAX_VALUE_LENGTH = 100;
@@ -56,10 +59,6 @@ public class DeviceReading {
      */
     @Column(name = "collected_at", nullable = false, updatable = false)
     private Instant collectedAt;
-
-    protected DeviceReading() {
-        // for JPA
-    }
 
     public static DeviceReading record(UUID homeDeviceId, MetricType metric, Instant time, String value, String unit,
                                        Instant collectedAt) {

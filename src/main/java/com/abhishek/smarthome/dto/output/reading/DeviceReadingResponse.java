@@ -4,8 +4,10 @@ import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.enums.MetricType;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
 
 /** One stored reading. */
+@Getter
 public final class DeviceReadingResponse {
 
 	private final UUID id;
@@ -28,33 +30,5 @@ public final class DeviceReadingResponse {
 
 	public static DeviceReadingResponse from(DeviceReading reading) {
 		return new DeviceReadingResponse(reading);
-	}
-
-	public UUID getId() {
-		return id;
-	}
-
-	public UUID getHomeDeviceId() {
-		return homeDeviceId;
-	}
-
-	public MetricType getMetric() {
-		return metric;
-	}
-
-	public Instant getTime() {
-		return time;
-	}
-
-	public String getValue() {
-		return value;
-	}
-
-	public String getUnit() {
-		return unit;
-	}
-
-	public Instant getCollectedAt() {
-		return collectedAt;
 	}
 }

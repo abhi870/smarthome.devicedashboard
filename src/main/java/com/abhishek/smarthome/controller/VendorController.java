@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,29 +19,26 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/smart-home/vendors")
+@RequiredArgsConstructor
 class VendorController {
 
-	private final VendorService service;
-
-	VendorController(VendorService service) {
-		this.service = service;
-	}
+	private final VendorService vendorService;
 
 	@PostMapping("/register")
 	ResponseEntity<VendorResponse> register(@Valid @RequestBody RegisterVendorRequest request,
 			UriComponentsBuilder uriBuilder) {
-		VendorResponse created = VendorResponse.from(service.register(request.getCode(), request.getName()));
+		VendorResponse created = VendorResponse.from(vendorService.register(request.getCode(), request.getName()));
 		URI location = uriBuilder.path("/api/v1/smart-home/vendors/{id}").build(created.getId());
 		return ResponseEntity.created(location).body(created);
 	}
 
 	@GetMapping
 	List<VendorResponse> list() {
-		return service.list().stream().map(VendorResponse::from).toList();
+		return vendorService.list().stream().map(VendorResponse::from).toList();
 	}
 
 	@GetMapping("/{id}")
 	VendorResponse get(@PathVariable UUID id) {
-		return VendorResponse.from(service.get(id));
+		return VendorResponse.from(vendorService.get(id));
 	}
 }

@@ -5,9 +5,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /** Body of {@code POST /api/v1/smart-home/home-devices/register}. */
+@Getter
 public final class RegisterHomeDeviceRequest {
 
 	public static final int DEFAULT_POLLING_INTERVAL_SECONDS = 300;
@@ -42,25 +44,5 @@ public final class RegisterHomeDeviceRequest {
 	public RegisterHomeDeviceCommand toCommand() {
 		return new RegisterHomeDeviceCommand(homeId, deviceId, externalDeviceId, name,
 				pollingIntervalSeconds == null ? DEFAULT_POLLING_INTERVAL_SECONDS : pollingIntervalSeconds);
-	}
-
-	public UUID getHomeId() {
-		return homeId;
-	}
-
-	public UUID getDeviceId() {
-		return deviceId;
-	}
-
-	public String getExternalDeviceId() {
-		return externalDeviceId;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public @Nullable Integer getPollingIntervalSeconds() {
-		return pollingIntervalSeconds;
 	}
 }

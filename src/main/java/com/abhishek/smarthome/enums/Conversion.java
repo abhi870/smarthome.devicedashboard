@@ -35,15 +35,15 @@ public enum Conversion {
 	}
 
 	/** Unit the vendor sends; for {@link #NONE} it is the metric's own unit. */
-	public String externalUnit(MetricType metric) {
-		return externalUnit == null ? metric.unit() : externalUnit;
+	public String getExternalUnit(MetricType metric) {
+		return externalUnit == null ? metric.getUnit() : externalUnit;
 	}
 
-	public BigDecimal factor() {
+	public BigDecimal getFactor() {
 		return factor;
 	}
 
-	public BigDecimal offset() {
+	public BigDecimal getOffset() {
 		return offset;
 	}
 

@@ -20,7 +20,7 @@ class DeviceReadingConverterTest {
 	private static final Instant T0 = Instant.parse("2026-09-26T10:00:00Z");
 	private static final Instant COLLECTED = T0.plusSeconds(300);
 
-	private final DeviceReadingConverter converter = new DeviceReadingConverter();
+	private final DeviceReadingConverter deviceReadingConverter = new DeviceReadingConverter();
 
 	private final List<MetricMapping> samsungFridge = List.of(
 			MetricMapping.of("switch.switch", MetricType.SWITCH, Conversion.NONE),
@@ -34,7 +34,7 @@ class DeviceReadingConverterTest {
 				"powerConsumptionReport.power", 110.5, "powerConsumptionReport.energy", 1500.0,
 				"temperatureMeasurement.temperature", 212.0));
 
-		List<DeviceReading> readings = converter.convert(HOME_DEVICE_ID, samsungFridge, List.of(sample), COLLECTED);
+		List<DeviceReading> readings = deviceReadingConverter.convert(HOME_DEVICE_ID, samsungFridge, List.of(sample), COLLECTED);
 
 		assertThat(readings).extracting(DeviceReading::getMetric, DeviceReading::getValue, DeviceReading::getUnit)
 				.containsExactly(
@@ -54,7 +54,7 @@ class DeviceReadingConverterTest {
 		RawMetricSample sample = new RawMetricSample(T0, Map.of("switch.switch", "maybe",
 				"powerConsumptionReport.power", 110.5, "someVendorOnlyMetric", 42));
 
-		List<DeviceReading> readings = converter.convert(HOME_DEVICE_ID, samsungFridge, List.of(sample), COLLECTED);
+		List<DeviceReading> readings = deviceReadingConverter.convert(HOME_DEVICE_ID, samsungFridge, List.of(sample), COLLECTED);
 
 		assertThat(readings).extracting(DeviceReading::getMetric).containsExactly(MetricType.POWER);
 	}

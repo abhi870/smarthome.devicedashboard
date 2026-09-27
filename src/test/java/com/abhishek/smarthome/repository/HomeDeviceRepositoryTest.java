@@ -30,16 +30,16 @@ class HomeDeviceRepositoryTest {
 	private static final Instant NOW = Instant.parse("2026-09-27T10:00:00Z");
 
 	@Autowired
-	VendorRepository vendors;
+	VendorRepository vendorRepository;
 
 	@Autowired
-	HomeRepository homes;
+	HomeRepository homeRepository;
 
 	@Autowired
-	DeviceRepository devices;
+	DeviceRepository deviceRepository;
 
 	@Autowired
-	HomeDeviceRepository homeDevices;
+	HomeDeviceRepository homeDeviceRepository;
 
 	@Autowired
 	EntityManager em;
@@ -50,9 +50,9 @@ class HomeDeviceRepositoryTest {
 
 	@BeforeEach
 	void setUp() {
-		vendor = vendors.saveAndFlush(Vendor.register(VendorCode.SAMSUNG, "Samsung", NOW));
-		home = homes.saveAndFlush(Home.register("My home", "UTC", NOW));
-		device = devices.saveAndFlush(Device.register(vendor, DeviceType.REFRIGERATOR, "SS-RF-1", "Samsung Fridge",
+		vendor = vendorRepository.saveAndFlush(Vendor.register(VendorCode.SAMSUNG, "Samsung", NOW));
+		home = homeRepository.saveAndFlush(Home.register("My home", "UTC", NOW));
+		device = deviceRepository.saveAndFlush(Device.register(vendor, DeviceType.REFRIGERATOR, "SS-RF-1", "Samsung Fridge",
 				List.of(MetricMapping.of("temperatureMeasurement.temperature", MetricType.TEMPERATURE, Conversion.F_TO_C),
 						MetricMapping.of("powerConsumptionReport.energy", MetricType.ENERGY, Conversion.WH_TO_KWH)),
 				NOW));
@@ -61,11 +61,11 @@ class HomeDeviceRepositoryTest {
 	@Test
 	void shouldLoadDeviceAndVendor_whenFoundWithEntityGraph() {
 		// given
-		HomeDevice saved = homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
+		HomeDevice saved = homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
 		em.clear();
 
 		// when
-		HomeDevice found = homeDevices.findWithDeviceById(saved.getId()).orElseThrow();
+		HomeDevice found = homeDeviceRepository.findWithDeviceById(saved.getId()).orElseThrow();
 		em.clear();
 
 		// then: associations are initialized, so reading them outside the persistence context works
@@ -79,7 +79,7 @@ class HomeDeviceRepositoryTest {
 		em.clear();
 
 		// when
-		Device found = devices.findWithVendorById(device.getId()).orElseThrow();
+		Device found = deviceRepository.findWithVendorById(device.getId()).orElseThrow();
 		em.clear();
 
 		// then: mappings were saved with the device and are fetched by the entity graph
@@ -95,23 +95,23 @@ class HomeDeviceRepositoryTest {
 	@Test
 	void shouldReplaceMetricMappings() {
 		// given
-		Device loaded = devices.findWithVendorById(device.getId()).orElseThrow();
+		Device loaded = deviceRepository.findWithVendorById(device.getId()).orElseThrow();
 
 		// when
 		loaded.replaceMetricMappings(List.of(MetricMapping.of("switch.switch", MetricType.SWITCH, Conversion.NONE)));
-		devices.flush();
+		deviceRepository.flush();
 		em.clear();
 
 		// then
-		assertThat(devices.findWithVendorById(device.getId()).orElseThrow().getMetricMappings())
+		assertThat(deviceRepository.findWithVendorById(device.getId()).orElseThrow().getMetricMappings())
 				.extracting(MetricMapping::getExternalMetric).containsExactly("switch.switch");
 	}
 
 	@Test
 	void shouldExposeInverseSides_forVendorAndHome() {
 		// given
-		homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
-		homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "Garage fridge", 60, NOW));
+		homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
+		homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "Garage fridge", 60, NOW));
 		em.clear();
 
 		// when
@@ -127,17 +127,17 @@ class HomeDeviceRepositoryTest {
 	@Test
 	void shouldRejectDuplicateExternalId_forSameCatalogueDevice() {
 		// given
-		homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
+		homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
 
 		// when / then
-		assertThatThrownBy(() -> homeDevices
+		assertThatThrownBy(() -> homeDeviceRepository
 				.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Duplicate", 60, NOW)))
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
 	void shouldRejectDuplicateModel_forSameVendor() {
-		assertThatThrownBy(() -> devices
+		assertThatThrownBy(() -> deviceRepository
 				.saveAndFlush(Device.register(vendor, DeviceType.REFRIGERATOR, "SS-RF-1", "Duplicate", List.of(), NOW)))
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
@@ -145,21 +145,21 @@ class HomeDeviceRepositoryTest {
 	@Test
 	void shouldFindDueDevices_mostOverdueFirst_andSkipFutureOnes() {
 		// given: registered at NOW (due at NOW); one ran at NOW (next NOW+60), one registered later
-		HomeDevice dueFirst = homeDevices.saveAndFlush(
+		HomeDevice dueFirst = homeDeviceRepository.saveAndFlush(
 				HomeDevice.register(home, device, "ss-rf-01", "A", 60, NOW.minusSeconds(120)));
-		HomeDevice dueSecond = homeDevices.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "B", 60, NOW));
+		HomeDevice dueSecond = homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "B", 60, NOW));
 		HomeDevice notDue = HomeDevice.register(home, device, "ss-rf-03", "C", 60, NOW);
 		notDue.markRun(NOW);
-		homeDevices.saveAndFlush(notDue);
+		homeDeviceRepository.saveAndFlush(notDue);
 		em.clear();
 
 		// when
-		List<HomeDevice> due = homeDevices.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW,
+		List<HomeDevice> due = homeDeviceRepository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW,
 				Limit.of(10));
 
 		// then
 		assertThat(due).extracting(HomeDevice::getId).containsExactly(dueFirst.getId(), dueSecond.getId());
-		assertThat(homeDevices.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(1)))
+		assertThat(homeDeviceRepository.findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(NOW, Limit.of(1)))
 				.hasSize(1);
 	}
 }

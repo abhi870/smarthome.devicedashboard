@@ -28,49 +28,49 @@ class DeviceReadingRepositoryTest {
 	private static final Instant T0 = Instant.parse("2026-09-27T10:00:00Z");
 
 	@Autowired
-	DeviceReadingRepository readings;
+	DeviceReadingRepository deviceReadingRepository;
 
 	@Autowired
-	VendorRepository vendors;
+	VendorRepository vendorRepository;
 
 	@Autowired
-	DeviceRepository devices;
+	DeviceRepository deviceRepository;
 
 	@Autowired
-	HomeRepository homes;
+	HomeRepository homeRepository;
 
 	@Autowired
-	HomeDeviceRepository homeDevices;
+	HomeDeviceRepository homeDeviceRepository;
 
 	private UUID homeDeviceId;
 
 	@BeforeEach
 	void setUp() {
-		Vendor vendor = vendors.saveAndFlush(Vendor.register(VendorCode.CISCO, "Cisco", T0));
-		Device device = devices.saveAndFlush(Device.register(vendor, DeviceType.OVEN, "CS-OV20", "Cisco Oven",
+		Vendor vendor = vendorRepository.saveAndFlush(Vendor.register(VendorCode.CISCO, "Cisco", T0));
+		Device device = deviceRepository.saveAndFlush(Device.register(vendor, DeviceType.OVEN, "CS-OV20", "Cisco Oven",
 				List.of(MetricMapping.of("pwr_w", MetricType.POWER, Conversion.NONE)), T0));
-		Home home = homes.saveAndFlush(Home.register("My home", "UTC", T0));
-		homeDeviceId = homeDevices.saveAndFlush(HomeDevice.register(home, device, "csc-oven-01", "Oven", 60, T0))
+		Home home = homeRepository.saveAndFlush(Home.register("My home", "UTC", T0));
+		homeDeviceId = homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "csc-oven-01", "Oven", 60, T0))
 				.getId();
 	}
 
 	private DeviceReading reading(MetricType metric, double value, int minute) {
 		return DeviceReading.record(homeDeviceId, metric, T0.plusSeconds(60L * minute), String.valueOf(value),
-				metric.unit(), T0);
+				metric.getUnit(), T0);
 	}
 
 	@Test
 	void shouldReturnReadingsInHalfOpenRange_newestFirst() {
 		// given: minutes 0..3, POWER and TEMPERATURE
 		for (int minute = 0; minute < 4; minute++) {
-			readings.save(reading(MetricType.POWER, 100 + minute, minute));
-			readings.save(reading(MetricType.TEMPERATURE, 20 + minute, minute));
+			deviceReadingRepository.save(reading(MetricType.POWER, 100 + minute, minute));
+			deviceReadingRepository.save(reading(MetricType.TEMPERATURE, 20 + minute, minute));
 		}
-		readings.flush();
+		deviceReadingRepository.flush();
 
 		// when: [minute 1, minute 3)
-		List<DeviceReading> all = readings.findInRange(homeDeviceId, T0.plusSeconds(60), T0.plusSeconds(180));
-		List<DeviceReading> power = readings.findInRange(homeDeviceId, MetricType.POWER, T0.plusSeconds(60),
+		List<DeviceReading> all = deviceReadingRepository.findInRange(homeDeviceId, T0.plusSeconds(60), T0.plusSeconds(180));
+		List<DeviceReading> power = deviceReadingRepository.findInRange(homeDeviceId, MetricType.POWER, T0.plusSeconds(60),
 				T0.plusSeconds(180));
 
 		// then: start inclusive, end exclusive, newest first
@@ -82,17 +82,17 @@ class DeviceReadingRepositoryTest {
 
 	@Test
 	void shouldStoreSwitchStateAsText() {
-		readings.saveAndFlush(DeviceReading.record(homeDeviceId, MetricType.SWITCH, T0, "ON", "on/off", T0));
+		deviceReadingRepository.saveAndFlush(DeviceReading.record(homeDeviceId, MetricType.SWITCH, T0, "ON", "on/off", T0));
 
-		assertThat(readings.findInRange(homeDeviceId, MetricType.SWITCH, T0, T0.plusSeconds(60)))
+		assertThat(deviceReadingRepository.findInRange(homeDeviceId, MetricType.SWITCH, T0, T0.plusSeconds(60)))
 				.singleElement().extracting(DeviceReading::getValue).isEqualTo("ON");
 	}
 
 	@Test
 	void shouldRejectDuplicateReading_forSameDeviceMetricAndTime() {
-		readings.saveAndFlush(reading(MetricType.POWER, 100, 0));
+		deviceReadingRepository.saveAndFlush(reading(MetricType.POWER, 100, 0));
 
-		assertThatThrownBy(() -> readings.saveAndFlush(reading(MetricType.POWER, 999, 0)))
+		assertThatThrownBy(() -> deviceReadingRepository.saveAndFlush(reading(MetricType.POWER, 999, 0)))
 				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 }

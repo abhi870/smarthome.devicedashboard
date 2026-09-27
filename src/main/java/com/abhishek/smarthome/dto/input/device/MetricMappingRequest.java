@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,6 +22,7 @@ import org.jspecify.annotations.Nullable;
  * the vendor already sends the canonical unit (factor 1, offset 0). {@code internalUnit} defaults to the metric's
  * unit and must equal it; {@code externalUnit} defaults to {@code internalUnit}.
  */
+@Getter
 public final class MetricMappingRequest {
 
 	@NotBlank
@@ -82,7 +84,7 @@ public final class MetricMappingRequest {
 			}
 		}
 		else {
-			String internal = internalUnit == null ? metric.unit() : internalUnit.trim();
+			String internal = internalUnit == null ? metric.getUnit() : internalUnit.trim();
 			String external = externalUnit == null ? internal : externalUnit.trim();
 			mapping = new MetricMapping(externalMetric, metric, external, internal,
 					factor == null ? BigDecimal.ONE : factor, offset == null ? BigDecimal.ZERO : offset);
@@ -91,37 +93,5 @@ public final class MetricMappingRequest {
 			mapping.verifySample(sample.getExternal(), sample.getExpected());
 		}
 		return mapping;
-	}
-
-	public String getExternalMetric() {
-		return externalMetric;
-	}
-
-	public MetricType getMetric() {
-		return metric;
-	}
-
-	public @Nullable Conversion getConversion() {
-		return conversion;
-	}
-
-	public @Nullable String getExternalUnit() {
-		return externalUnit;
-	}
-
-	public @Nullable String getInternalUnit() {
-		return internalUnit;
-	}
-
-	public @Nullable BigDecimal getFactor() {
-		return factor;
-	}
-
-	public @Nullable BigDecimal getOffset() {
-		return offset;
-	}
-
-	public @Nullable MetricSampleRequest getSample() {
-		return sample;
 	}
 }

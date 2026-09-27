@@ -3,7 +3,9 @@ package com.abhishek.smarthome.dto.output.home;
 import com.abhishek.smarthome.entity.Home;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
 
+@Getter
 public final class HomeResponse {
 
 	private final UUID id;
@@ -20,21 +22,5 @@ public final class HomeResponse {
 
 	public static HomeResponse from(Home home) {
 		return new HomeResponse(home);
-	}
-
-	public UUID getId() {
-		return id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public String getTimezone() {
-		return timezone;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
 	}
 }
