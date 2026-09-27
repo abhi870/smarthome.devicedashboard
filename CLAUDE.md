@@ -66,7 +66,7 @@ com.abhishek.smarthome
 │   ├── client/    # VendorClientProvider (RestClient per vendor), VendorClientFactory, samsung/ amazon/ cisco/ clients
 │   └── (no adapters: vendor → canonical metric mapping is data, see MetricMapping on Device)
 ├── collection/    # scheduling + executing metric collection, CollectionRun audit
-├── metrics/       # MetricType + Conversion (canonical metrics); later historical storage & queries
+├── metrics/       # MetricType + Conversion (canonical metrics), DeviceReading history; /readings
 ├── report/        # daily + on-demand report generation & retrieval (JSON, CSV)
 ├── common/        # error handling (ProblemDetail), paging DTO, Clock bean, config properties
 └── SmartHomeApplication.java
@@ -134,8 +134,14 @@ Rules (enforce with an ArchUnit test once added):
 - **Mock vendor APIs** (served by `../vendors` at `http://localhost:8081/api/v1/{samsung|amazon|cisco}/devices...`): deliberately different auth headers
   (`X-API-Key`, `Authorization: Bearer`, `X-Cisco-Api-Key`), range params (ISO / epoch-ms / since+limit), time formats and payload shapes; one sample
   per minute, deterministic from `Clock` + device type.
-- **MetricReading**: deviceId, metricType, value (`double`), unit, `recordedAt` (vendor time), `collectedAt`.
-  Append-only; index `(device_id, metric_type, recorded_at)`; unique on the same triple for idempotency.
+- **DeviceReading** (entity, table `device_reading`, `metrics.domain`): `UUID id`, `homeDeviceId` (plain UUID column
+  with FK — no JPA relationship, hot path), `metric` (`MetricType`), `time` (vendor time; column `reading_time`),
+  `value` (string, column `reading_value VARCHAR(100)`: a number for numeric metrics — reports use
+  `CAST(reading_value AS DOUBLE PRECISION)` — or a state like `ON` for SWITCH), `unit` (string, e.g. `W`, `C`,
+  `on/off`; defaults to `metric.unit()`), `collectedAt`. Append-only, no `@Version`. Unique index `(home_device_id, metric, reading_time DESC)` —
+  idempotent collection and fast per-device-per-metric report queries; index `(home_device_id, reading_time DESC)`.
+  API: `POST /readings` body `{homeDeviceId, metric, time, value, unit?}` (201; duplicate → 409),
+  `GET /readings?homeDeviceId=&startDate=&endDate=[&metric=]` (ISO instants, `[start, end)`, newest first).
 - **CollectionRun**: one row per attempt — status `SUCCESS | PARTIAL | FAILED | RATE_LIMITED | SKIPPED`,
   readings count, error message, duration, startedAt.
 - **Report**: `UUID id`, type `DAILY | ON_DEMAND`, range `[from, to)`, scope (home, all or deviceIds),

@@ -95,3 +95,18 @@ GET {{host}}/api/v1/smart-home/homes
 
 ###
 GET {{host}}/api/v1/smart-home/home-devices?homeId={{homeId}}
+
+### Device readings: save one (value and unit are strings; unit optional, defaults to the metric's unit)
+POST {{host}}/api/v1/smart-home/readings
+Content-Type: application/json
+
+{"homeDeviceId": "{{homeDeviceId}}", "metric": "POWER", "time": "2026-09-27T10:05:00Z", "value": "1150.5", "unit": "W"}
+
+###
+POST {{host}}/api/v1/smart-home/readings
+Content-Type: application/json
+
+{"homeDeviceId": "{{homeDeviceId}}", "metric": "SWITCH", "time": "2026-09-27T10:05:00Z", "value": "ON"}
+
+### Device readings of a device (and metric) between two instants: startDate inclusive, endDate exclusive, newest first
+GET {{host}}/api/v1/smart-home/readings?homeDeviceId={{homeDeviceId}}&metric=POWER&startDate=2026-09-27T00:00:00Z&endDate=2026-09-28T00:00:00Z
