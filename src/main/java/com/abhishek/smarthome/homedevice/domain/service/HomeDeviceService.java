@@ -8,9 +8,12 @@ import com.abhishek.smarthome.homedevice.domain.entity.HomeDevice;
 import com.abhishek.smarthome.homedevice.domain.exception.HomeDeviceNotFoundException;
 import com.abhishek.smarthome.homedevice.domain.repository.HomeDeviceRepository;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,12 @@ public class HomeDeviceService {
 		log.info("Registered home device {} ({} {} {}) in home {}", homeDevice.getId(), device.getVendor().getCode(),
 				device.getModel(), homeDevice.getExternalDeviceId(), home.getId());
 		return homeDevice;
+	}
+
+	/** Home devices, optionally of one home, ordered by name. */
+	public List<HomeDevice> list(@Nullable UUID homeId) {
+		Sort byName = Sort.by("name");
+		return homeId == null ? repository.findAllBy(byName) : repository.findByHomeId(homeId, byName);
 	}
 
 	/**

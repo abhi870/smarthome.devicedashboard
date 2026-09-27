@@ -11,6 +11,7 @@ import com.abhishek.smarthome.vendor.domain.entity.Vendor;
 import com.abhishek.smarthome.vendor.domain.exception.VendorNotFoundException;
 import com.abhishek.smarthome.vendor.domain.service.VendorService;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,5 +76,18 @@ class VendorControllerTest {
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/vendors/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
+	}
+	@Test
+	void shouldListVendors() {
+		// given
+		Instant now = Instant.parse("2026-09-27T10:00:00Z");
+		given(service.list()).willReturn(List.of(Vendor.register(VendorCode.AMAZON, "Amazon", now),
+				Vendor.register(VendorCode.SAMSUNG, "Samsung", now)));
+
+		// when / then
+		var response = assertThat(mvc.get().uri("/api/v1/smart-home/vendors"));
+		response.hasStatusOk();
+		response.bodyJson().extractingPath("$.length()").isEqualTo(2);
+		response.bodyJson().extractingPath("$[1].code").isEqualTo("SAMSUNG");
 	}
 }

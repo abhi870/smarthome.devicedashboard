@@ -162,7 +162,8 @@ Rules (enforce with an ArchUnit test once added):
   `/home-devices/{id}/metrics`, `/home-devices/{id}/collections`, `/reports`.
 - Registration endpoints: `POST /api/v1/smart-home/{vendors|homes|devices|home-devices}/register` → 201 + `Location:
   /api/v1/smart-home/{res}/{id}`; `GET /api/v1/smart-home/{res}/{id}`. Catalogue devices reference `vendorId`;
-  home devices reference `homeId` + `deviceId` (UUIDs). `GET /devices?vendorId=&deviceType=` lists supported devices;
+  home devices reference `homeId` + `deviceId` (UUIDs). List endpoints: `GET /vendors`, `GET /homes`,
+  `GET /devices?vendorId=&deviceType=` (supported devices), `GET /home-devices?homeId=`;
   `PUT /devices/{id}/mappings` replaces a device's metric mappings (200).
 - Mock vendor APIs live in the separate `../vendors` service under **`/api/v1/{vendor}`** (`samsung`, `amazon`, `cisco`).
   `smart-home` is reserved and can never be a vendor code.

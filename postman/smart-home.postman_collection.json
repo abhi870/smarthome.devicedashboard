@@ -1,0 +1,1309 @@
+{
+  "info": {
+    "name": "Smart Home - register devices",
+    "description": "Seeds the smart-home backend with the devices the mock vendors service knows: 3 vendors → 6 catalogue devices (with metric mappings) → 1 home → 6 home devices.\n\nRun folders 1–4 in order (Collection Runner works). IDs are saved to collection variables automatically. Data already there? Run folder 0 first — it lists what exists and fills the id variables, so you can skip the register requests that would return 409.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. What's already there",
+      "description": "List endpoints. Each one also copies the ids of existing data into the collection variables, so after a 409 you can run this folder and carry on with folders 2–5 without resetting the DB.",
+      "item": [
+        {
+          "name": "List vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/vendors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "vendors"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const ids = { SAMSUNG: \"samsungId\", AMAZON: \"amazonId\", CISCO: \"ciscoId\" };",
+                  "pm.response.json().forEach(v => ids[v.code] && pm.collectionVariables.set(ids[v.code], v.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List catalogue devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const ids = { \"SH-RF500\": \"samFridgeDeviceId\", \"SH-WM900\": \"samWasherDeviceId\", \"AZ-TV55\": \"amzTvDeviceId\",",
+                  "  \"AZ-AC12\": \"amzAcDeviceId\", \"CS-OV20\": \"cscOvenDeviceId\", \"CS-DR80\": \"cscDryerDeviceId\" };",
+                  "pm.response.json().forEach(d => ids[d.model] && pm.collectionVariables.set(ids[d.model], d.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List homes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/homes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "homes"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const homes = pm.response.json();",
+                  "const mine = homes.find(h => h.name === \"My home\") || homes[0];",
+                  "if (mine) pm.collectionVariables.set(\"homeId\", mine.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List home devices (all)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const ids = { \"sam-fridge-01\": \"samFridgeHomeDeviceId\", \"sam-washer-01\": \"samWasherHomeDeviceId\",",
+                  "  \"amz-tv-01\": \"amzTvHomeDeviceId\", \"amz-ac-01\": \"amzAcHomeDeviceId\", \"csc-oven-01\": \"cscOvenHomeDeviceId\",",
+                  "  \"csc-dryer-01\": \"cscDryerHomeDeviceId\" };",
+                  "pm.response.json().forEach(d => ids[d.externalDeviceId] && pm.collectionVariables.set(ids[d.externalDeviceId], d.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List home devices of my home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices?homeId={{homeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices"
+              ],
+              "query": [
+                {
+                  "key": "homeId",
+                  "value": "{{homeId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Vendors",
+      "description": "Register the three mock vendors. Codes must match smarthome.vendors.<code> config.",
+      "item": [
+        {
+          "name": "Register Samsung",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/vendors/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "vendors",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"SAMSUNG\",\n  \"name\": \"Samsung\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"samsungId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Amazon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/vendors/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "vendors",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"AMAZON\",\n  \"name\": \"Amazon\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"amazonId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Cisco",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/vendors/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "vendors",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CISCO\",\n  \"name\": \"Cisco\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"ciscoId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Catalogue devices (admin)",
+      "description": "Supported models with metric mappings. Samsung payloads are nested, so their external metrics are dotted paths to the reading.",
+      "item": [
+        {
+          "name": "Samsung Family Hub Fridge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{samsungId}}\",\n  \"deviceType\": \"REFRIGERATOR\",\n  \"model\": \"SH-RF500\",\n  \"name\": \"Samsung Family Hub Fridge\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"switch.switch\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumptionReport.power\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumptionReport.energy\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"WH_TO_KWH\"\n    },\n    {\n      \"externalMetric\": \"temperatureMeasurement.temperature\",\n      \"metric\": \"TEMPERATURE\",\n      \"conversion\": \"F_TO_C\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"samFridgeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Samsung EcoBubble Washer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{samsungId}}\",\n  \"deviceType\": \"WASHER\",\n  \"model\": \"SH-WM900\",\n  \"name\": \"Samsung EcoBubble Washer\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"switch.switch\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumptionReport.power\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumptionReport.energy\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"WH_TO_KWH\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"samWasherDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Amazon Fire TV 55",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{amazonId}}\",\n  \"deviceType\": \"TV\",\n  \"model\": \"AZ-TV55\",\n  \"name\": \"Amazon Fire TV 55\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"powerState\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumption\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"KW_TO_W\"\n    },\n    {\n      \"externalMetric\": \"energyUsage\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"NONE\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"amzTvDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Amazon Smart AC 12K",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{amazonId}}\",\n  \"deviceType\": \"AC\",\n  \"model\": \"AZ-AC12\",\n  \"name\": \"Amazon Smart AC 12K\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"powerState\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumption\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"KW_TO_W\"\n    },\n    {\n      \"externalMetric\": \"energyUsage\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"temperature\",\n      \"metric\": \"TEMPERATURE\",\n      \"conversion\": \"NONE\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"amzAcDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cisco Smart Oven 20L",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{ciscoId}}\",\n  \"deviceType\": \"OVEN\",\n  \"model\": \"CS-OV20\",\n  \"name\": \"Cisco Smart Oven 20L\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"state\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"pwr_w\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"kwh_total\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"temp_c\",\n      \"metric\": \"TEMPERATURE\",\n      \"conversion\": \"NONE\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"cscOvenDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cisco Heat-Pump Dryer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendorId\": \"{{ciscoId}}\",\n  \"deviceType\": \"DRYER\",\n  \"model\": \"CS-DR80\",\n  \"name\": \"Cisco Heat-Pump Dryer\",\n  \"mappings\": [\n    {\n      \"externalMetric\": \"state\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"pwr_w\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"kwh_total\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"NONE\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"cscDryerDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Home",
+      "item": [
+        {
+          "name": "Register home",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/homes/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "homes",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My home\",\n  \"timezone\": \"Asia/Kolkata\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"homeId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Home devices (user)",
+      "description": "The user's appliances; externalDeviceId must match a device id in the vendors service.",
+      "item": [
+        {
+          "name": "Kitchen fridge (sam-fridge-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{samFridgeDeviceId}}\",\n  \"externalDeviceId\": \"sam-fridge-01\",\n  \"name\": \"Kitchen fridge\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"samFridgeHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Laundry washer (sam-washer-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{samWasherDeviceId}}\",\n  \"externalDeviceId\": \"sam-washer-01\",\n  \"name\": \"Laundry washer\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"samWasherHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Living room TV (amz-tv-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{amzTvDeviceId}}\",\n  \"externalDeviceId\": \"amz-tv-01\",\n  \"name\": \"Living room TV\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"amzTvHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bedroom AC (amz-ac-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{amzAcDeviceId}}\",\n  \"externalDeviceId\": \"amz-ac-01\",\n  \"name\": \"Bedroom AC\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"amzAcHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kitchen oven (csc-oven-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{cscOvenDeviceId}}\",\n  \"externalDeviceId\": \"csc-oven-01\",\n  \"name\": \"Kitchen oven\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"cscOvenHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Laundry dryer (csc-dryer-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"homeId\": \"{{homeId}}\",\n  \"deviceId\": \"{{cscDryerDeviceId}}\",\n  \"externalDeviceId\": \"csc-dryer-01\",\n  \"name\": \"Laundry dryer\",\n  \"pollingIntervalSeconds\": {{pollingIntervalSeconds}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.collectionVariables.set(\"cscDryerHomeDeviceId\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Read & update",
+      "item": [
+        {
+          "name": "List all catalogue devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Amazon ACs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices?vendorId={{amazonId}}&deviceType=AC",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "vendorId",
+                  "value": "{{amazonId}}"
+                },
+                {
+                  "key": "deviceType",
+                  "value": "AC"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get catalogue device (Amazon AC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/{{amzAcDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "{{amzAcDeviceId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get vendor (Samsung)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/vendors/{{samsungId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "vendors",
+                "{{samsungId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/homes/{{homeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "homes",
+                "{{homeId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get home device (Bedroom AC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/home-devices/{{amzAcHomeDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "home-devices",
+                "{{amzAcHomeDeviceId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace mappings (Amazon AC)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/{{amzAcDeviceId}}/mappings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "{{amzAcDeviceId}}",
+                "mappings"
+              ]
+            },
+            "description": "Replaces the full set of mappings (not a patch).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mappings\": [\n    {\n      \"externalMetric\": \"powerState\",\n      \"metric\": \"SWITCH\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"powerConsumption\",\n      \"metric\": \"POWER\",\n      \"conversion\": \"KW_TO_W\"\n    },\n    {\n      \"externalMetric\": \"energyUsage\",\n      \"metric\": \"ENERGY\",\n      \"conversion\": \"NONE\"\n    },\n    {\n      \"externalMetric\": \"temperature\",\n      \"metric\": \"TEMPERATURE\",\n      \"conversion\": \"NONE\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid mapping → 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/smart-home/devices/{{amzAcDeviceId}}/mappings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "smart-home",
+                "devices",
+                "{{amzAcDeviceId}}",
+                "mappings"
+              ]
+            },
+            "description": "Conversion must produce the metric's unit.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mappings\": [\n    {\n      \"externalMetric\": \"temperature\",\n      \"metric\": \"TEMPERATURE\",\n      \"conversion\": \"KW_TO_W\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "pollingIntervalSeconds",
+      "value": "60"
+    },
+    {
+      "key": "samsungId",
+      "value": ""
+    },
+    {
+      "key": "amazonId",
+      "value": ""
+    },
+    {
+      "key": "ciscoId",
+      "value": ""
+    },
+    {
+      "key": "samFridgeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "samWasherDeviceId",
+      "value": ""
+    },
+    {
+      "key": "amzTvDeviceId",
+      "value": ""
+    },
+    {
+      "key": "amzAcDeviceId",
+      "value": ""
+    },
+    {
+      "key": "cscOvenDeviceId",
+      "value": ""
+    },
+    {
+      "key": "cscDryerDeviceId",
+      "value": ""
+    },
+    {
+      "key": "homeId",
+      "value": ""
+    },
+    {
+      "key": "samFridgeHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "samWasherHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "amzTvHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "amzAcHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "cscOvenHomeDeviceId",
+      "value": ""
+    },
+    {
+      "key": "cscDryerHomeDeviceId",
+      "value": ""
+    }
+  ]
+}

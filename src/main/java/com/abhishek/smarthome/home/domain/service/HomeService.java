@@ -4,8 +4,10 @@ import com.abhishek.smarthome.home.domain.entity.Home;
 import com.abhishek.smarthome.home.domain.exception.HomeNotFoundException;
 import com.abhishek.smarthome.home.domain.repository.HomeRepository;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,11 @@ public class HomeService {
 	@Transactional
 	public Home register(String name, String timezone) {
 		return repository.save(Home.register(name, timezone, clock.instant()));
+	}
+
+	/** All homes, ordered by name. */
+	public List<Home> list() {
+		return repository.findAll(Sort.by("name"));
 	}
 
 	/**

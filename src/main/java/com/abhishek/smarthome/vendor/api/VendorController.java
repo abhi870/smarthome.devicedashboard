@@ -5,6 +5,7 @@ import com.abhishek.smarthome.vendor.api.dto.VendorResponse;
 import com.abhishek.smarthome.vendor.domain.service.VendorService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,11 @@ class VendorController {
 		VendorResponse created = VendorResponse.from(service.register(request.getCode(), request.getName()));
 		URI location = uriBuilder.path("/api/v1/smart-home/vendors/{id}").build(created.getId());
 		return ResponseEntity.created(location).body(created);
+	}
+
+	@GetMapping
+	List<VendorResponse> list() {
+		return service.list().stream().map(VendorResponse::from).toList();
 	}
 
 	@GetMapping("/{id}")

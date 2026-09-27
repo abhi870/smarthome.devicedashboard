@@ -5,6 +5,7 @@ import com.abhishek.smarthome.home.api.dto.RegisterHomeRequest;
 import com.abhishek.smarthome.home.domain.service.HomeService;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,11 @@ class HomeController {
 		HomeResponse created = HomeResponse.from(service.register(request.getName(), request.getTimezoneOrDefault()));
 		URI location = uriBuilder.path("/api/v1/smart-home/homes/{id}").build(created.getId());
 		return ResponseEntity.created(location).body(created);
+	}
+
+	@GetMapping
+	List<HomeResponse> list() {
+		return service.list().stream().map(HomeResponse::from).toList();
 	}
 
 	@GetMapping("/{id}")

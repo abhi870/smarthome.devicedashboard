@@ -5,8 +5,10 @@ import com.abhishek.smarthome.vendor.domain.entity.Vendor;
 import com.abhishek.smarthome.vendor.domain.exception.VendorNotFoundException;
 import com.abhishek.smarthome.vendor.domain.repository.VendorRepository;
 import java.time.Clock;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,11 @@ public class VendorService {
 	@Transactional
 	public Vendor register(VendorCode code, String name) {
 		return repository.save(Vendor.register(code, name, clock.instant()));
+	}
+
+	/** All vendors, ordered by code. */
+	public List<Vendor> list() {
+		return repository.findAll(Sort.by("code"));
 	}
 
 	/**

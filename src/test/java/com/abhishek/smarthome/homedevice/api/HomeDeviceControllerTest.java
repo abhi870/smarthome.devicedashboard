@@ -109,4 +109,25 @@ class HomeDeviceControllerTest {
 		// when / then
 		assertThat(mvc.get().uri(BASE + "/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
 	}
+	@Test
+	void shouldListHomeDevices_filteredByHome() {
+		// given
+		given(service.list(home.getId()))
+				.willReturn(List.of(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW)));
+
+		// when / then
+		var response = assertThat(mvc.get().uri(BASE).param("homeId", home.getId().toString()));
+		response.hasStatusOk();
+		response.bodyJson().extractingPath("$[0].externalDeviceId").isEqualTo("amz-ac-01");
+		response.bodyJson().extractingPath("$[0].homeId").isEqualTo(home.getId().toString());
+	}
+
+	@Test
+	void shouldListAllHomeDevices_whenNoHomeGiven() {
+		// given
+		given(service.list(null)).willReturn(List.of());
+
+		// when / then
+		assertThat(mvc.get().uri(BASE)).hasStatusOk().bodyJson().extractingPath("$.length()").isEqualTo(0);
+	}
 }

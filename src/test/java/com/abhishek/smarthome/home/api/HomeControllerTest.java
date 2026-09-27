@@ -9,6 +9,7 @@ import com.abhishek.smarthome.home.domain.entity.Home;
 import com.abhishek.smarthome.home.domain.exception.HomeNotFoundException;
 import com.abhishek.smarthome.home.domain.service.HomeService;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,5 +74,15 @@ class HomeControllerTest {
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/homes/{id}", id)).hasStatus(HttpStatus.NOT_FOUND);
+	}
+	@Test
+	void shouldListHomes() {
+		// given
+		given(service.list()).willReturn(List.of(Home.register("My home", "UTC", NOW)));
+
+		// when / then
+		assertThat(mvc.get().uri("/api/v1/smart-home/homes"))
+				.hasStatusOk()
+				.bodyJson().extractingPath("$[0].name").isEqualTo("My home");
 	}
 }

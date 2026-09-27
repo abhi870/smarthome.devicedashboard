@@ -86,3 +86,12 @@ GET {{host}}/api/v1/smart-home/devices/{{deviceId}}
 
 ###
 GET {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}
+
+### Lists: what's already there
+GET {{host}}/api/v1/smart-home/vendors
+
+###
+GET {{host}}/api/v1/smart-home/homes
+
+###
+GET {{host}}/api/v1/smart-home/home-devices?homeId={{homeId}}
