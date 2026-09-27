@@ -1,0 +1,41 @@
+package com.abhishek.smarthome.homedevice.api;
+
+import com.abhishek.smarthome.homedevice.api.dto.HomeDeviceResponse;
+import com.abhishek.smarthome.homedevice.api.dto.RegisterHomeDeviceRequest;
+import com.abhishek.smarthome.homedevice.domain.service.HomeDeviceService;
+import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.UUID;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
+
+/** Users register their physical appliances (of a supported catalogue device) in a home. */
+@RestController
+@RequestMapping("/api/v1/smart-home/home-devices")
+class HomeDeviceController {
+
+	private final HomeDeviceService service;
+
+	HomeDeviceController(HomeDeviceService service) {
+		this.service = service;
+	}
+
+	@PostMapping("/register")
+	ResponseEntity<HomeDeviceResponse> register(@Valid @RequestBody RegisterHomeDeviceRequest request,
+			UriComponentsBuilder uriBuilder) {
+		HomeDeviceResponse created = HomeDeviceResponse.from(service.register(request.toCommand()));
+		URI location = uriBuilder.path("/api/v1/smart-home/home-devices/{id}").build(created.getId());
+		return ResponseEntity.created(location).body(created);
+	}
+
+	@GetMapping("/{id}")
+	HomeDeviceResponse get(@PathVariable UUID id) {
+		return HomeDeviceResponse.from(service.get(id));
+	}
+}

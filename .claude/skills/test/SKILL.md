@@ -1,7 +1,7 @@
 ---
 name: test
 description: Write or improve tests for a class, feature or endpoint using current Spring Boot 4 / JUnit 5 practices — unit tests, @WebMvcTest/@DataJpaTest slices, Testcontainers integration tests, scheduled-job and vendor-adapter tests. Use when asked to add tests, raise coverage, or fix flaky tests.
-argument-hint: <class, feature or endpoint to test, e.g. "ApplianceService" or "report feature">
+argument-hint: <class, feature or endpoint to test, e.g. "DeviceService" or "report feature">
 ---
 
 # Test skill — modern Spring Boot testing
@@ -31,7 +31,7 @@ Aim: many unit tests, focused slices, few but meaningful ITs.
 ## Step 1 — Conventions (non-negotiable)
 
 - Structure: `// given` / `// when` / `// then` blocks. One behavior per test.
-- Names: `shouldReturn404_whenApplianceDoesNotExist()`; optional `@DisplayName("…")`. Group with `@Nested`.
+- Names: `shouldReturn404_whenDeviceDoesNotExist()`; optional `@DisplayName("…")`. Group with `@Nested`.
 - AssertJ only (`assertThat`, `assertThatThrownBy`, `.extracting`, `.usingRecursiveComparison()`); no JUnit `assertEquals`.
 - `@MockitoBean` / `@MockitoSpyBean` (the old `@MockBean`/`@SpyBean` are removed in Boot 4).
 - Package-private test classes and methods (`class FooTest`, `void should…()`).
@@ -48,12 +48,12 @@ Aim: many unit tests, focused slices, few but meaningful ITs.
 
 ## Step 2 — Test data builders
 
-Create/extend `src/test/java/.../support/TestData.java` (or per-feature `ApplianceFixtures`):
+Create/extend `src/test/java/.../support/TestData.java` (or per-feature `DeviceFixtures`):
 ```java
-public final class ApplianceFixtures {
-    public static Appliance.ApplianceBuilder anAppliance() {
-        return Appliance.builder().name("Living Room AC").type(ApplianceType.AIR_CONDITIONER)
-                .vendor(Vendor.SAMSUNG).vendorDeviceId("sam-" + UUID.randomUUID()).collectionIntervalSeconds(60).enabled(true);
+public final class DeviceFixtures {
+    public static Device.DeviceBuilder anDevice() {
+        return Device.builder().name("Living Room AC").type(DeviceType.AIR_CONDITIONER)
+                .vendor(VendorCode.SAMSUNG).externalDeviceId("sam-" + UUID.randomUUID()).collectionIntervalSeconds(60).enabled(true);
     }
 }
 ```
@@ -63,17 +63,17 @@ public final class ApplianceFixtures {
 **Unit (service)**
 ```java
 @ExtendWith(MockitoExtension.class)
-class ApplianceServiceTest {
-    @Mock ApplianceRepository repository;
+class DeviceServiceTest {
+    @Mock DeviceRepository repository;
     Clock clock = Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"), ZoneOffset.UTC);
-    ApplianceService service;
+    DeviceService service;
 
-    @BeforeEach void setUp() { service = new ApplianceService(repository, clock); }
+    @BeforeEach void setUp() { service = new DeviceService(repository, clock); }
 
     @Test
     void shouldRejectDuplicateVendorDevice() {
         // given
-        given(repository.existsByVendorAndVendorDeviceId(Vendor.SAMSUNG, "d-1")).willReturn(true);
+        given(repository.existsByVendorAndExternalDeviceId(VendorCode.SAMSUNG, "d-1")).willReturn(true);
         // when / then
         assertThatThrownBy(() -> service.register(command("d-1")))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("d-1");
@@ -84,17 +84,17 @@ class ApplianceServiceTest {
 
 **Web slice (AssertJ-style MockMvcTester)**
 ```java
-@WebMvcTest(ApplianceController.class)
+@WebMvcTest(DeviceController.class)
 @Import(GlobalExceptionHandler.class)
-class ApplianceControllerTest {
+class DeviceControllerTest {
     @Autowired MockMvcTester mvc;
-    @MockitoBean ApplianceService service;
+    @MockitoBean DeviceService service;
 
     @Test
     void shouldReturn400WithFieldErrors_whenNameMissing() {
-        assertThat(mvc.post().uri("/api/v1/smarthome/appliances").contentType(APPLICATION_JSON)
+        assertThat(mvc.post().uri("/api/v1/smart-home/devices").contentType(APPLICATION_JSON)
                 .content("""
-                        {"type":"OVEN","vendor":"SAMSUNG","vendorDeviceId":"x"}
+                        {"type":"OVEN","vendor":"SAMSUNG","externalDeviceId":"x"}
                         """))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errors[0].field").isEqualTo("name");
@@ -106,12 +106,12 @@ service was (or was not) called.
 
 ## Step 4 — Domain-specific must-cover cases
 
-- **Collection**: due vs not-due appliances; disabled skipped; `nextCollectionAt` advanced by interval; backoff on failure;
+- **Collection**: due vs not-due devices; disabled skipped; `nextCollectionAt` advanced by interval; backoff on failure;
   interval change takes effect; one vendor failing doesn't block others; `CollectionRun` recorded per status.
 - **Vendor adapters**: metric name/unit mapping (e.g. °F → °C, Wh → kWh), unknown metrics dropped,
   429 → `VendorRateLimitedException`, 5xx/timeout → `VendorUnavailableException`, auth refresh path.
 - **Metrics history**: idempotent insert (duplicate reading ignored), range queries half-open, pagination.
-- **Reports**: min/max/avg/count correctness on a hand-computed dataset, empty range, appliance with no data,
+- **Reports**: min/max/avg/count correctness on a hand-computed dataset, empty range, device with no data,
   timezone day boundaries for daily report, idempotent daily job, async status transitions, CSV output shape.
 - **API**: every documented error status is tested at least once.
 

@@ -1,7 +1,7 @@
 ---
 name: api
-description: Build a production-grade Spring Boot REST API for the named resource or endpoint (e.g. "/api appliances", "/api POST /reports"). Creates request/response classes (never records), validation, service, controller, ProblemDetail errors, pagination, OpenAPI docs, tests and sample requests following CLAUDE.md conventions.
-argument-hint: <resource or endpoint, e.g. "appliances" or "GET /appliances/{id}/metrics">
+description: Build a production-grade Spring Boot REST API for the named resource or endpoint (e.g. "/api devices", "/api POST /reports"). Creates request/response classes (never records), validation, service, controller, ProblemDetail errors, pagination, OpenAPI docs, tests and sample requests following CLAUDE.md conventions.
+argument-hint: <resource or endpoint, e.g. "devices" or "GET /devices/{id}/metrics">
 ---
 
 # API skill — production-standard REST endpoints
@@ -22,14 +22,14 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 
 | Operation | Method & path | Success | Typical errors |
 |---|---|---|---|
-| List | `GET /api/v1/smarthome/{res}?page&size&sort&filters` | 200 `PageResponse<T>` | 400 bad filter |
-| Get | `GET /api/v1/smarthome/{res}/{id}` | 200 | 404 |
-| Create | `POST /api/v1/smarthome/{res}` | 201 + `Location` + body | 400, 409 duplicate |
-| Partial update | `PATCH /api/v1/smarthome/{res}/{id}` | 200 | 400, 404, 409 version conflict |
-| Replace (rare) | `PUT /api/v1/smarthome/{res}/{id}` | 200 | 400, 404, 409 |
-| Delete | `DELETE /api/v1/smarthome/{res}/{id}` | 204 (idempotent: 204 even if already gone is acceptable, or 404 — be consistent) | 404 |
-| Action | `POST /api/v1/smarthome/{res}/{id}/{verb-noun}` e.g. `/collections` | 202 if async, 200/201 if sync | 404, 409, 429 |
-| Async job | `POST` → 202 + `Location: /api/v1/smarthome/{res}/{id}`; poll `GET` returns `status` | 202 | 400 |
+| List | `GET /api/v1/smart-home/{res}?page&size&sort&filters` | 200 `PageResponse<T>` | 400 bad filter |
+| Get | `GET /api/v1/smart-home/{res}/{id}` | 200 | 404 |
+| Create | `POST /api/v1/smart-home/{res}` | 201 + `Location` + body | 400, 409 duplicate |
+| Partial update | `PATCH /api/v1/smart-home/{res}/{id}` | 200 | 400, 404, 409 version conflict |
+| Replace (rare) | `PUT /api/v1/smart-home/{res}/{id}` | 200 | 400, 404, 409 |
+| Delete | `DELETE /api/v1/smart-home/{res}/{id}` | 204 (idempotent: 204 even if already gone is acceptable, or 404 — be consistent) | 404 |
+| Action | `POST /api/v1/smart-home/{res}/{id}/{verb-noun}` e.g. `/collections` | 202 if async, 200/201 if sync | 404, 409, 429 |
+| Async job | `POST` → 202 + `Location: /api/v1/smart-home/{res}/{id}`; poll `GET` returns `status` | 202 | 400 |
 
 - Plural kebab-case nouns, UUID path ids, camelCase JSON, ISO-8601 UTC `Instant`s, enums as UPPER_SNAKE strings.
 - Time ranges: `from` inclusive, `to` exclusive; validate `from < to` and max span.
@@ -43,9 +43,9 @@ X/api/FooController.java
 X/api/dto/CreateFooRequest.java      // class + Jakarta validation
 X/api/dto/UpdateFooRequest.java      // class, all fields nullable for PATCH
 X/api/dto/FooResponse.java           // class + static from(Foo)
-X/domain/FooService.java             // @Service, @Transactional boundaries, business rules
-X/domain/FooNotFoundException.java   // extends common NotFoundException
-X/infra/FooRepository.java           // Spring Data (if not existing)
+X/domain/service/FooService.java     // @Service, @Transactional boundaries, business rules
+X/domain/exception/FooNotFoundException.java // extends common NotFoundException
+X/domain/repository/FooRepository.java // Spring Data (if not existing)
 common/api/PageResponse.java         // reuse if exists
 common/api/GlobalExceptionHandler.java // reuse; add mappings only if new exception types
 http/foo.http                        // sample requests
@@ -58,20 +58,20 @@ one constructor (`@JsonCreator` + `@JsonProperty` for request bodies) and getter
 
 **Request class with validation**
 ```java
-public final class CreateApplianceRequest {
+public final class CreateDeviceRequest {
     @NotBlank @Size(max = 100) private final String name;
-    @NotNull private final ApplianceType type;
+    @NotNull private final DeviceType type;
     @NotNull private final Vendor vendor;
-    @NotBlank @Size(max = 100) private final String vendorDeviceId;
+    @NotBlank @Size(max = 100) private final String externalDeviceId;
     @Size(max = 50) private final String room;
     @Min(10) @Max(86_400) private final Integer collectionIntervalSeconds;
 
     @JsonCreator
-    public CreateApplianceRequest(@JsonProperty("name") String name, @JsonProperty("type") ApplianceType type,
-            @JsonProperty("vendor") Vendor vendor, @JsonProperty("vendorDeviceId") String vendorDeviceId,
+    public CreateDeviceRequest(@JsonProperty("name") String name, @JsonProperty("type") DeviceType type,
+            @JsonProperty("vendor") Vendor vendor, @JsonProperty("externalDeviceId") String externalDeviceId,
             @JsonProperty("room") String room, @JsonProperty("collectionIntervalSeconds") Integer collectionIntervalSeconds) {
         this.name = name; this.type = type; this.vendor = vendor;
-        this.vendorDeviceId = vendorDeviceId; this.room = room; this.collectionIntervalSeconds = collectionIntervalSeconds;
+        this.externalDeviceId = externalDeviceId; this.room = room; this.collectionIntervalSeconds = collectionIntervalSeconds;
     }
 
     public String getName() { return name; }
@@ -81,15 +81,15 @@ public final class CreateApplianceRequest {
 
 **Response class**
 ```java
-public final class ApplianceResponse {
+public final class DeviceResponse {
     private final UUID id;
     private final String name;
-    // ... type, vendor, vendorDeviceId, room, collectionIntervalSeconds, enabled,
+    // ... type, vendor, externalDeviceId, room, collectionIntervalSeconds, enabled,
     //     lastCollectedAt, nextCollectionAt, createdAt, updatedAt, version
 
-    private ApplianceResponse(Appliance a) { this.id = a.getId(); this.name = a.getName(); /* ... */ }
+    private DeviceResponse(Device a) { this.id = a.getId(); this.name = a.getName(); /* ... */ }
 
-    public static ApplianceResponse from(Appliance a) { return new ApplianceResponse(a); }
+    public static DeviceResponse from(Device a) { return new DeviceResponse(a); }
 
     public UUID getId() { return id; }
     public String getName() { return name; }
@@ -100,22 +100,22 @@ public final class ApplianceResponse {
 **Controller** — thin: validate, delegate, map, set status/headers.
 ```java
 @RestController
-@RequestMapping("/api/v1/smarthome/appliances")
+@RequestMapping("/api/v1/smart-home/devices")
 @RequiredArgsConstructor
-@Tag(name = "Appliances")                       // springdoc, once added
-class ApplianceController {
-    private final ApplianceService service;
+@Tag(name = "Devices")                       // springdoc, once added
+class DeviceController {
+    private final DeviceService service;
 
     @PostMapping
-    ResponseEntity<ApplianceResponse> create(@Valid @RequestBody CreateApplianceRequest req, UriComponentsBuilder uri) {
-        var created = ApplianceResponse.from(service.register(req.toCommand()));
-        return ResponseEntity.created(uri.path("/api/v1/smarthome/appliances/{id}").build(created.getId())).body(created);
+    ResponseEntity<DeviceResponse> create(@Valid @RequestBody CreateDeviceRequest req, UriComponentsBuilder uri) {
+        var created = DeviceResponse.from(service.register(req.toCommand()));
+        return ResponseEntity.created(uri.path("/api/v1/smart-home/devices/{id}").build(created.getId())).body(created);
     }
 
     @GetMapping
-    PageResponse<ApplianceResponse> list(@RequestParam(required = false) ApplianceType type,
+    PageResponse<DeviceResponse> list(@RequestParam(required = false) DeviceType type,
                                          @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return PageResponse.from(service.list(type, cap(pageable)).map(ApplianceResponse::from));
+        return PageResponse.from(service.list(type, cap(pageable)).map(DeviceResponse::from));
     }
 }
 ```
@@ -125,20 +125,20 @@ class ApplianceController {
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ApplianceService {
-    private final ApplianceRepository repository;
+public class DeviceService {
+    private final DeviceRepository repository;
     private final Clock clock;
 
     @Transactional
-    public Appliance register(RegisterApplianceCommand cmd) {
-        if (repository.existsByVendorAndVendorDeviceId(cmd.getVendor(), cmd.getVendorDeviceId())) {
-            throw new ConflictException("Appliance already registered for vendor device " + cmd.getVendorDeviceId());
+    public Device register(RegisterDeviceCommand cmd) {
+        if (repository.existsByVendorAndExternalDeviceId(cmd.getVendor(), cmd.getExternalDeviceId())) {
+            throw new ConflictException("Device already registered for vendor device " + cmd.getExternalDeviceId());
         }
-        return repository.save(Appliance.register(cmd, clock.instant()));
+        return repository.save(Device.register(cmd, clock.instant()));
     }
 
-    public Appliance get(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new ApplianceNotFoundException(id));
+    public Device get(UUID id) {
+        return repository.findById(id).orElseThrow(() -> new DeviceNotFoundException(id));
     }
 }
 ```

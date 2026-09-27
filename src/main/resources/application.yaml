@@ -5,7 +5,7 @@ spring:
 smarthome:
   vendors:
     samsung:
-      base-url: ${SAMSUNG_BASE_URL:http://localhost:${server.port:8080}/api/v1/samsung}
+      base-url: ${SAMSUNG_BASE_URL:http://localhost:8081/api/v1/samsung}
       connect-timeout: 1s
       read-timeout: 2s
       auth:
@@ -13,7 +13,7 @@ smarthome:
         name: X-API-Key
         api-key: ${SAMSUNG_API_KEY:samsung-demo-key}
     amazon:
-      base-url: ${AMAZON_BASE_URL:http://localhost:${server.port:8080}/api/v1/amazon}
+      base-url: ${AMAZON_BASE_URL:http://localhost:8081/api/v1/amazon}
       connect-timeout: 1s
       read-timeout: 3s
       auth:
@@ -22,7 +22,7 @@ smarthome:
         prefix: "Bearer "
         api-key: ${AMAZON_API_KEY:amazon-demo-key}
     cisco:
-      base-url: ${CISCO_BASE_URL:http://localhost:${server.port:8080}/api/v1/cisco}
+      base-url: ${CISCO_BASE_URL:http://localhost:8081/api/v1/cisco}
       connect-timeout: 2s
       read-timeout: 5s
       auth:

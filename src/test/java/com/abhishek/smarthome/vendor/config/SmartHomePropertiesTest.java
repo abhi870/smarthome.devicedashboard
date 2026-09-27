@@ -2,7 +2,7 @@ package com.abhishek.smarthome.vendor.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import java.net.URI;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
@@ -25,19 +25,19 @@ class SmartHomePropertiesTest {
 					// then
 					assertThat(context).hasNotFailed();
 					SmartHomeProperties props = context.getBean(SmartHomeProperties.class);
-					assertThat(props.getVendors()).containsOnlyKeys(Vendor.SAMSUNG, Vendor.AMAZON, Vendor.CISCO);
+					assertThat(props.getVendors()).containsOnlyKeys(VendorCode.SAMSUNG, VendorCode.AMAZON, VendorCode.CISCO);
 
-					VendorProperties samsung = props.getVendors().get(Vendor.SAMSUNG);
-					assertThat(samsung.getBaseUrl()).isEqualTo(URI.create("http://localhost:8080/api/v1/samsung"));
+					VendorProperties samsung = props.getVendors().get(VendorCode.SAMSUNG);
+					assertThat(samsung.getBaseUrl()).isEqualTo(URI.create("http://localhost:8081/api/v1/samsung"));
 					assertThat(samsung.getAuth().getType()).isEqualTo(AuthType.API_KEY_HEADER);
 					assertThat(samsung.getAuth().getName()).isEqualTo("X-API-Key");
 					assertThat(samsung.getAuth().getPrefix()).isNull();
 
-					AuthProperties amazon = props.getVendors().get(Vendor.AMAZON).getAuth();
+					AuthProperties amazon = props.getVendors().get(VendorCode.AMAZON).getAuth();
 					assertThat(amazon.getName()).isEqualTo("Authorization");
 					assertThat(amazon.getPrefix()).isEqualTo("Bearer ");
 
-					AuthProperties cisco = props.getVendors().get(Vendor.CISCO).getAuth();
+					AuthProperties cisco = props.getVendors().get(VendorCode.CISCO).getAuth();
 					assertThat(cisco.getType()).isEqualTo(AuthType.API_KEY_HEADER);
 					assertThat(cisco.getName()).isEqualTo("X-Cisco-Api-Key");
 					assertThat(cisco.getPrefix()).isNull();
@@ -48,7 +48,7 @@ class SmartHomePropertiesTest {
 	void shouldApplyDefaultTimeouts_whenTimeoutsNotConfigured() {
 		runner.withPropertyValues(validSamsung())
 				.run(context -> {
-					VendorProperties samsung = context.getBean(SmartHomeProperties.class).getVendors().get(Vendor.SAMSUNG);
+					VendorProperties samsung = context.getBean(SmartHomeProperties.class).getVendors().get(VendorCode.SAMSUNG);
 					assertThat(samsung.getConnectTimeout()).isEqualTo(Duration.ofSeconds(1));
 					assertThat(samsung.getReadTimeout()).isEqualTo(Duration.ofSeconds(2));
 				});
@@ -59,7 +59,7 @@ class SmartHomePropertiesTest {
 		runner.withPropertyValues(validSamsung())
 				.withPropertyValues(SAMSUNG + "connect-timeout=500ms", SAMSUNG + "read-timeout=5s")
 				.run(context -> {
-					VendorProperties samsung = context.getBean(SmartHomeProperties.class).getVendors().get(Vendor.SAMSUNG);
+					VendorProperties samsung = context.getBean(SmartHomeProperties.class).getVendors().get(VendorCode.SAMSUNG);
 					assertThat(samsung.getConnectTimeout()).isEqualTo(Duration.ofMillis(500));
 					assertThat(samsung.getReadTimeout()).isEqualTo(Duration.ofSeconds(5));
 				});

@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.auth;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
 import com.abhishek.smarthome.vendor.config.AuthType;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -13,5 +13,5 @@ public interface VendorAuthInterceptorFactory {
 
 	AuthType type();
 
-	ClientHttpRequestInterceptor create(Vendor vendor, AuthProperties auth);
+	ClientHttpRequestInterceptor create(VendorCode vendor, AuthProperties auth);
 }

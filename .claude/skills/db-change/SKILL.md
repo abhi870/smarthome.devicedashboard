@@ -25,21 +25,21 @@ Target: **$ARGUMENTS**
 
 ```java
 @Entity
-@Table(name = "appliance", uniqueConstraints = @UniqueConstraint(name = "uk_appliance_vendor_device",
+@Table(name = "device", uniqueConstraints = @UniqueConstraint(name = "uk_device_vendor_device",
         columnNames = {"vendor", "vendor_device_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Appliance {
+public class Device {
     @Id private UUID id;
     @Column(nullable = false, length = 100) private String name;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private ApplianceType type;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private DeviceType type;
     // ...
     @Version private long version;
 
-    public static Appliance register(RegisterApplianceCommand cmd, Instant now) { /* factory, sets id = UUID.randomUUID() */ }
+    public static Device register(RegisterDeviceCommand cmd, Instant now) { /* factory, sets id = UUID.randomUUID() */ }
     public void changeInterval(int seconds, Instant now) { /* invariant checks, reschedule */ }
 
-    @Override public boolean equals(Object o) { return o instanceof Appliance a && id != null && id.equals(a.id); }
+    @Override public boolean equals(Object o) { return o instanceof Device a && id != null && id.equals(a.id); }
     @Override public int hashCode() { return getClass().hashCode(); }
 }
 ```
@@ -47,21 +47,21 @@ No `@Data`, no public setters; behavior methods enforce invariants. Assign UUIDs
 
 ## Time-series metrics guidance
 
-- `metric_reading(id bigint identity, appliance_id uuid, metric_type varchar, value double precision, unit varchar,
-  recorded_at timestamptz, collected_at timestamptz)`, `uk_metric_reading (appliance_id, metric_type, recorded_at)`,
-  `ix_metric_reading_lookup (appliance_id, recorded_at)`.
-- No JPA relationship from `MetricReading` to `Appliance` (just `applianceId`) — avoids loading graphs on hot paths.
+- `metric_reading(id bigint identity, device_id uuid, metric_type varchar, value double precision, unit varchar,
+  recorded_at timestamptz, collected_at timestamptz)`, `uk_metric_reading (device_id, metric_type, recorded_at)`,
+  `ix_metric_reading_lookup (device_id, recorded_at)`.
+- No JPA relationship from `MetricReading` to `Device` (just `deviceId`) — avoids loading graphs on hot paths.
 - Batch inserts: `hibernate.jdbc.batch_size: 50`, `order_inserts: true`; identity PK disables batching in Hibernate,
   so prefer a `SEQUENCE` with `allocationSize = 50` if volume matters.
-- Aggregations for reports via a JPQL/native **projection** query grouped by appliance + metric
+- Aggregations for reports via a JPQL/native **projection** query grouped by device + metric
   (`min, max, avg, count, sum`) over `recorded_at >= :from and recorded_at < :to` — not by loading rows into memory.
 - Retention (optional): configurable `smarthome.metrics.retention-days` purge job.
 
 ## Repository rules
 
-- Spring Data interfaces in `infra/`; derived queries for simple cases, `@Query` for the rest; projections as interfaces or classes (no records).
+- Spring Data interfaces in `<feature>/domain/repository/`; entities in `<feature>/domain/entity/`; derived queries for simple cases, `@Query` for the rest; projections as interfaces or classes (no records).
 - List endpoints: `Page<T>` with bounded size; avoid N+1 (`@EntityGraph` or fetch join).
-- Postgres-only SQL (e.g. `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`) only behind an `infra` class with an H2-safe alternative or a Testcontainers-only test.
+- Postgres-only SQL (e.g. `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`) only behind a `domain/repository` class with an H2-safe alternative or a Testcontainers-only test.
 
 ## Tests
 

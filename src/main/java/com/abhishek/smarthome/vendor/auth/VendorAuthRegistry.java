@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.auth;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthType;
 import com.abhishek.smarthome.vendor.config.VendorConfigProvider;
 import com.abhishek.smarthome.vendor.config.VendorNotConfiguredException;
@@ -17,11 +17,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class VendorAuthRegistry {
 
-	private final Map<Vendor, ClientHttpRequestInterceptor> interceptors = new EnumMap<>(Vendor.class);
+	private final Map<VendorCode, ClientHttpRequestInterceptor> interceptors = new EnumMap<>(VendorCode.class);
 
 	public VendorAuthRegistry(List<VendorAuthInterceptorFactory> factories, VendorConfigProvider config) {
 		Map<AuthType, VendorAuthInterceptorFactory> byType = indexByType(factories);
-		for (Vendor vendor : config.configuredVendors()) {
+		for (VendorCode vendor : config.configuredVendors()) {
 			AuthType type = config.get(vendor).getAuth().getType();
 			VendorAuthInterceptorFactory factory = byType.get(type);
 			if (factory == null) {
@@ -35,7 +35,7 @@ public class VendorAuthRegistry {
 	/**
 	 * @throws VendorNotConfiguredException if the vendor has no configuration
 	 */
-	public ClientHttpRequestInterceptor interceptorFor(Vendor vendor) {
+	public ClientHttpRequestInterceptor interceptorFor(VendorCode vendor) {
 		ClientHttpRequestInterceptor interceptor = interceptors.get(vendor);
 		if (interceptor == null) {
 			throw new VendorNotConfiguredException(vendor);

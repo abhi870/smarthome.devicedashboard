@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.auth;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
 import com.abhishek.smarthome.vendor.config.AuthType;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
@@ -16,7 +16,7 @@ class ApiKeyHeaderInterceptorFactory implements VendorAuthInterceptorFactory {
 	}
 
 	@Override
-	public ClientHttpRequestInterceptor create(Vendor vendor, AuthProperties auth) {
+	public ClientHttpRequestInterceptor create(VendorCode vendor, AuthProperties auth) {
 		String prefix = auth.getPrefix() == null ? "" : auth.getPrefix();
 		return new ApiKeyHeaderInterceptor(auth.getName(), prefix + auth.getApiKey());
 	}

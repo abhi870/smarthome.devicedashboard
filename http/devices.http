@@ -1,0 +1,88 @@
+### Smart home backend – vendor → home → supported device (catalogue) → home device
+@host = http://localhost:8080
+
+### 1. Register a vendor (code: SAMSUNG | AMAZON | CISCO)
+POST {{host}}/api/v1/smart-home/vendors/register
+Content-Type: application/json
+
+{"code": "AMAZON", "name": "Amazon"}
+
+> {% client.global.set("vendorId", response.body.id); %}
+
+### 2. Admin: add a supported device model with its metric mappings
+#   deviceType: TV | REFRIGERATOR | AC | OVEN | WASHER | DRYER
+#   metric:     TEMPERATURE (C) | POWER (W) | ENERGY (kWh) | HUMIDITY (%) | RUNTIME (min) | DOOR_OPEN_COUNT | SWITCH (1 on / 0 off)
+#   conversion: NONE (default) | F_TO_C, K_TO_C (TEMPERATURE) | KW_TO_W (POWER) | WH_TO_KWH (ENERGY)
+#               | SECONDS_TO_MINUTES, HOURS_TO_MINUTES (RUNTIME) – any other combination is 400
+POST {{host}}/api/v1/smart-home/devices/register
+Content-Type: application/json
+
+{
+  "vendorId": "{{vendorId}}",
+  "deviceType": "AC",
+  "model": "AZ-AC-1",
+  "name": "Amazon Smart AC",
+  "mappings": [
+    { "externalMetric": "powerConsumption", "metric": "POWER", "conversion": "KW_TO_W" },
+    { "externalMetric": "energyUsage", "metric": "ENERGY" },
+    { "externalMetric": "temperature", "metric": "TEMPERATURE", "conversion": "NONE" },
+    { "externalMetric": "powerState", "metric": "SWITCH" }
+  ]
+}
+
+> {% client.global.set("deviceId", response.body.id); %}
+
+### 2b. Admin: replace all mappings of that device (full set, not a patch)
+PUT {{host}}/api/v1/smart-home/devices/{{deviceId}}/mappings
+Content-Type: application/json
+
+{
+  "mappings": [
+    { "externalMetric": "powerConsumption", "metric": "POWER", "conversion": "KW_TO_W" },
+    { "externalMetric": "energyUsage", "metric": "ENERGY" },
+    { "externalMetric": "powerState", "metric": "SWITCH" }
+  ]
+}
+
+### 2c. Invalid: conversion does not fit the metric → 400
+PUT {{host}}/api/v1/smart-home/devices/{{deviceId}}/mappings
+Content-Type: application/json
+
+{ "mappings": [ { "externalMetric": "temperature", "metric": "TEMPERATURE", "conversion": "KW_TO_W" } ] }
+
+### 3. User: browse supported devices (filters optional)
+GET {{host}}/api/v1/smart-home/devices?vendorId={{vendorId}}&deviceType=AC
+
+### 4. Register a home (timezone optional, default UTC)
+POST {{host}}/api/v1/smart-home/homes/register
+Content-Type: application/json
+
+{"name": "My home", "timezone": "Asia/Kolkata"}
+
+> {% client.global.set("homeId", response.body.id); %}
+
+### 5. User: register their appliance in the home (pollingIntervalSeconds optional, default 300)
+POST {{host}}/api/v1/smart-home/home-devices/register
+Content-Type: application/json
+
+{
+  "homeId": "{{homeId}}",
+  "deviceId": "{{deviceId}}",
+  "externalDeviceId": "amz-ac-01",
+  "name": "Bedroom AC",
+  "pollingIntervalSeconds": 60
+}
+
+> {% client.global.set("homeDeviceId", response.body.id); %}
+
+### Get vendor / home / device / home device
+GET {{host}}/api/v1/smart-home/vendors/{{vendorId}}
+
+###
+GET {{host}}/api/v1/smart-home/homes/{{homeId}}
+
+###
+GET {{host}}/api/v1/smart-home/devices/{{deviceId}}
+
+###
+GET {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}

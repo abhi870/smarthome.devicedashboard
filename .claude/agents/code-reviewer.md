@@ -31,7 +31,7 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 - Reports: aggregation correctness, empty data, idempotent daily report, async status transitions.
 
 **API contract** (CLAUDE.md §5)
-- Product API under `/api/v1/smarthome`, mock vendors under `/api/v1/{vendor}` in `mockvendor`; plural nouns, correct status codes (201 + `Location`, 202 async, 204 delete, 409 conflicts).
+- Product API under `/api/v1/smart-home`, mock vendors live only in the separate `../vendors` service (never in this project); plural nouns, correct status codes (201 + `Location`, 202 async, 204 delete, 409 conflicts).
 - No Java `record` types anywhere (CLAUDE.md §6). Request classes validated (`@Valid`, constraints); errors as `ProblemDetail`; no entity leakage; bounded pagination.
 - Backward-incompatible changes to existing endpoints.
 
@@ -39,7 +39,7 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 - Entities: no `@Data`/`@Setter`/Lombok `equals`, `@Version` on mutable aggregates, `EnumType.STRING`.
 - N+1 queries, unbounded `findAll`, loading rows to aggregate in memory, missing indexes for new queries.
 - Transactions at service layer; **vendor calls inside a DB transaction** is a blocker.
-- SQL portable across Postgres and H2 (or isolated in `infra`); migrations never edited after being applied.
+- SQL portable across Postgres and H2 (or isolated in `domain/repository`); migrations never edited after being applied.
 
 **Concurrency & resilience**
 - Shared mutable state in singletons, thread-safety of executors, unbounded queues, missing timeouts on vendor calls,

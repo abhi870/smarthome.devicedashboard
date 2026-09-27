@@ -2,7 +2,7 @@ package com.abhishek.smarthome.vendor.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
 import com.abhishek.smarthome.vendor.config.AuthType;
 import java.io.IOException;
@@ -29,7 +29,7 @@ class ApiKeyHeaderInterceptorFactoryTest {
 	void shouldSendRawKey_whenNoPrefixConfigured() throws IOException {
 		// given
 		ClientHttpRequestInterceptor interceptor =
-				factory.create(Vendor.SAMSUNG, auth("X-API-Key", null, "samsung-key"));
+				factory.create(VendorCode.SAMSUNG, auth("X-API-Key", null, "samsung-key"));
 
 		// when
 		HttpHeaders sent = send(interceptor, new MockClientHttpRequest(HttpMethod.GET, URI.create("http://vendor/devices")));
@@ -42,7 +42,7 @@ class ApiKeyHeaderInterceptorFactoryTest {
 	void shouldPrependPrefix_whenPrefixConfigured() throws IOException {
 		// given
 		ClientHttpRequestInterceptor interceptor =
-				factory.create(Vendor.AMAZON, auth("Authorization", "Bearer ", "amazon-key"));
+				factory.create(VendorCode.AMAZON, auth("Authorization", "Bearer ", "amazon-key"));
 
 		// when
 		HttpHeaders sent = send(interceptor, new MockClientHttpRequest(HttpMethod.GET, URI.create("http://vendor/devices")));
@@ -55,7 +55,7 @@ class ApiKeyHeaderInterceptorFactoryTest {
 	void shouldReplaceExistingHeaderValue_whenHeaderAlreadyPresent() throws IOException {
 		// given
 		ClientHttpRequestInterceptor interceptor =
-				factory.create(Vendor.CISCO, auth("X-Cisco-Api-Key", null, "cisco-key"));
+				factory.create(VendorCode.CISCO, auth("X-Cisco-Api-Key", null, "cisco-key"));
 		MockClientHttpRequest request = new MockClientHttpRequest(HttpMethod.GET, URI.create("http://vendor/devices"));
 		request.getHeaders().add("X-Cisco-Api-Key", "stale");
 
@@ -70,7 +70,7 @@ class ApiKeyHeaderInterceptorFactoryTest {
 	void shouldNotExposeKey_whenInterceptorPrinted() {
 		// given
 		ClientHttpRequestInterceptor interceptor =
-				factory.create(Vendor.AMAZON, auth("Authorization", "Bearer ", "amazon-secret"));
+				factory.create(VendorCode.AMAZON, auth("Authorization", "Bearer ", "amazon-secret"));
 
 		// when / then
 		assertThat(interceptor.toString()).doesNotContain("amazon-secret").contains("Authorization");

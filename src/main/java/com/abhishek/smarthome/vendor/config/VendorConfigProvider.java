@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.config;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -14,10 +14,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class VendorConfigProvider {
 
-	private final Map<Vendor, VendorProperties> vendors;
+	private final Map<VendorCode, VendorProperties> vendors;
 
 	public VendorConfigProvider(SmartHomeProperties properties) {
-		Map<Vendor, VendorProperties> copy = new EnumMap<>(Vendor.class);
+		Map<VendorCode, VendorProperties> copy = new EnumMap<>(VendorCode.class);
 		copy.putAll(properties.getVendors());
 		this.vendors = Collections.unmodifiableMap(copy);
 	}
@@ -25,7 +25,7 @@ public class VendorConfigProvider {
 	/**
 	 * @throws VendorNotConfiguredException if the vendor has no configuration
 	 */
-	public VendorProperties get(Vendor vendor) {
+	public VendorProperties get(VendorCode vendor) {
 		VendorProperties config = vendors.get(vendor);
 		if (config == null) {
 			throw new VendorNotConfiguredException(vendor);
@@ -33,11 +33,11 @@ public class VendorConfigProvider {
 		return config;
 	}
 
-	public Set<Vendor> configuredVendors() {
+	public Set<VendorCode> configuredVendors() {
 		return vendors.keySet();
 	}
 
-	public boolean isConfigured(Vendor vendor) {
+	public boolean isConfigured(VendorCode vendor) {
 		return vendors.containsKey(vendor);
 	}
 }

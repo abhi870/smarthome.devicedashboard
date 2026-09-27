@@ -3,7 +3,7 @@ package com.abhishek.smarthome.vendor.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import com.abhishek.smarthome.vendor.config.AuthProperties;
 import com.abhishek.smarthome.vendor.config.AuthType;
 import com.abhishek.smarthome.vendor.config.SmartHomeProperties;
@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 class VendorAuthRegistryTest {
 
 	private final VendorConfigProvider config = new VendorConfigProvider(new SmartHomeProperties(Map.of(
-			Vendor.SAMSUNG, vendor("X-API-Key", null, "samsung-key"),
-			Vendor.AMAZON, vendor("Authorization", "Bearer ", "amazon-key"))));
+			VendorCode.SAMSUNG, vendor("X-API-Key", null, "samsung-key"),
+			VendorCode.AMAZON, vendor("Authorization", "Bearer ", "amazon-key"))));
 
 	@Test
 	void shouldBuildInterceptorForEachConfiguredVendor() {
@@ -28,9 +28,9 @@ class VendorAuthRegistryTest {
 		VendorAuthRegistry registry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), config);
 
 		// then
-		assertThat(registry.interceptorFor(Vendor.SAMSUNG)).isInstanceOf(ApiKeyHeaderInterceptor.class)
+		assertThat(registry.interceptorFor(VendorCode.SAMSUNG)).isInstanceOf(ApiKeyHeaderInterceptor.class)
 				.hasToString("ApiKeyHeaderInterceptor[header=X-API-Key, value=****]");
-		assertThat(registry.interceptorFor(Vendor.AMAZON))
+		assertThat(registry.interceptorFor(VendorCode.AMAZON))
 				.hasToString("ApiKeyHeaderInterceptor[header=Authorization, value=****]");
 	}
 
@@ -40,7 +40,7 @@ class VendorAuthRegistryTest {
 		VendorAuthRegistry registry = new VendorAuthRegistry(List.of(new ApiKeyHeaderInterceptorFactory()), config);
 
 		// when / then
-		assertThatThrownBy(() -> registry.interceptorFor(Vendor.CISCO))
+		assertThatThrownBy(() -> registry.interceptorFor(VendorCode.CISCO))
 				.isInstanceOf(VendorNotConfiguredException.class)
 				.hasMessageContaining("smarthome.vendors.cisco");
 	}

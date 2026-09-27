@@ -1,0 +1,61 @@
+package com.abhishek.smarthome.device.api;
+
+import com.abhishek.smarthome.device.api.dto.DeviceResponse;
+import com.abhishek.smarthome.device.api.dto.RegisterDeviceRequest;
+import com.abhishek.smarthome.device.api.dto.UpdateMetricMappingsRequest;
+import com.abhishek.smarthome.device.domain.service.DeviceCatalogService;
+import com.abhishek.smarthome.device.domain.entity.DeviceType;
+import jakarta.validation.Valid;
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
+
+/** Catalogue of supported device models: admins register them, users list them before registering a home device. */
+@RestController
+@RequestMapping("/api/v1/smart-home/devices")
+class DeviceController {
+
+	private final DeviceCatalogService service;
+
+	DeviceController(DeviceCatalogService service) {
+		this.service = service;
+	}
+
+	/** Admin: add a supported device model with its metric mappings. */
+	@PostMapping("/register")
+	ResponseEntity<DeviceResponse> register(@Valid @RequestBody RegisterDeviceRequest request,
+			UriComponentsBuilder uriBuilder) {
+		DeviceResponse created = DeviceResponse.from(service.register(request.toCommand()));
+		URI location = uriBuilder.path("/api/v1/smart-home/devices/{id}").build(created.getId());
+		return ResponseEntity.created(location).body(created);
+	}
+
+	/** Admin: replace all metric mappings of a supported device model. */
+	@PutMapping("/{id}/mappings")
+	DeviceResponse replaceMappings(@PathVariable UUID id, @Valid @RequestBody UpdateMetricMappingsRequest request) {
+		return DeviceResponse.from(service.replaceMetricMappings(id, request.toMappings()));
+	}
+
+	/** Users: browse supported devices, optionally by vendor and/or type. */
+	@GetMapping
+	List<DeviceResponse> list(@RequestParam(required = false) @Nullable UUID vendorId,
+			@RequestParam(required = false) @Nullable DeviceType deviceType) {
+		return service.list(vendorId, deviceType).stream().map(DeviceResponse::from).toList();
+	}
+
+	@GetMapping("/{id}")
+	DeviceResponse get(@PathVariable UUID id) {
+		return DeviceResponse.from(service.get(id));
+	}
+}

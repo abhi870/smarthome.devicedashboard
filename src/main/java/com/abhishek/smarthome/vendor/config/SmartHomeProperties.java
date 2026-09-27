@@ -1,6 +1,6 @@
 package com.abhishek.smarthome.vendor.config;
 
-import com.abhishek.smarthome.vendor.Vendor;
+import com.abhishek.smarthome.vendor.VendorCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.Map;
@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Root {@code smarthome.*} configuration. Vendor keys must match a {@link Vendor} constant
+ * Root {@code smarthome.*} configuration. VendorCode keys must match a {@link VendorCode} constant
  * (e.g. {@code smarthome.vendors.samsung}); unknown keys fail startup.
  */
 @Validated
@@ -16,13 +16,13 @@ import org.springframework.validation.annotation.Validated;
 public final class SmartHomeProperties {
 
 	@NotEmpty
-	private final Map<Vendor, @Valid VendorProperties> vendors;
+	private final Map<VendorCode, @Valid VendorProperties> vendors;
 
-	public SmartHomeProperties(Map<Vendor, VendorProperties> vendors) {
+	public SmartHomeProperties(Map<VendorCode, VendorProperties> vendors) {
 		this.vendors = vendors;
 	}
 
-	public Map<Vendor, VendorProperties> getVendors() {
+	public Map<VendorCode, VendorProperties> getVendors() {
 		return vendors;
 	}
 }
