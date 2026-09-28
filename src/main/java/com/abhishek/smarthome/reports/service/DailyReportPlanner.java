@@ -14,6 +14,7 @@ import com.abhishek.smarthome.service.DeviceCatalogService;
 import com.abhishek.smarthome.service.EntityLookups;
 import com.abhishek.smarthome.service.HomeDeviceService;
 import com.abhishek.smarthome.service.HomeService;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -22,10 +23,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * yet, or whose FAILED report is due for a retry. A day is finished once the home's local midnight is at least
  * {@code gracePeriod} ago. Fixed number of queries: devices, homes, catalogue devices (+ mappings), existing reports.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DailyReportPlanner {
@@ -58,17 +62,17 @@ public class DailyReportPlanner {
 		Map<UUID, Map<LocalDate, Report>> existing = existingDailyReports(homeDevices, now);
 		List<DailyReportTask> tasks = new ArrayList<>();
 		for (HomeDevice homeDevice : homeDevices) {
-			ZoneId zone = ZoneId.of(homesById.get(homeDevice.getHomeId()).getTimezone());
+			Optional<ZoneId> zone = zoneOf(homesById.get(homeDevice.getHomeId()));
 			Set<MetricType> metrics = mappedMetrics(devicesById.get(homeDevice.getDeviceId()));
-			if (metrics.isEmpty()) {
+			if (zone.isEmpty() || metrics.isEmpty()) {
 				continue;
 			}
 			Map<LocalDate, Report> reportsByDay = existing.getOrDefault(homeDevice.getId(), Map.of());
-			LocalDate lastDay = lastFinishedDay(now, zone);
-			for (LocalDate day = firstDay(homeDevice, zone, lastDay); !day.isAfter(lastDay); day = day.plusDays(1)) {
+			LocalDate lastDay = lastFinishedDay(now, zone.get());
+			for (LocalDate day = firstDay(homeDevice, zone.get(), lastDay); !day.isAfter(lastDay); day = day.plusDays(1)) {
 				Report report = reportsByDay.get(day);
 				if (report == null || report.isRetryDue(now)) {
-					tasks.add(new DailyReportTask(homeDevice.getId(), zone, day, metrics));
+					tasks.add(new DailyReportTask(homeDevice.getId(), zone.get(), day, metrics));
 					if (tasks.size() >= reportProperties.getBatchSize()) {
 						return tasks;
 					}
@@ -76,6 +80,20 @@ public class DailyReportPlanner {
 			}
 		}
 		return tasks;
+	}
+
+	/**
+	 * The home's timezone; empty (the home is skipped, the others still get reports) if the stored id is not valid,
+	 * e.g. data written before the API validated it.
+	 */
+	private static Optional<ZoneId> zoneOf(Home home) {
+		try {
+			return Optional.of(ZoneId.of(home.getTimezone()));
+		}
+		catch (DateTimeException e) {
+			log.warn("Skipping daily reports of home {}: invalid timezone '{}'", home.getId(), home.getTimezone());
+			return Optional.empty();
+		}
 	}
 
 	/** The latest local day whose end (next midnight) is at least the grace period before {@code now}. */

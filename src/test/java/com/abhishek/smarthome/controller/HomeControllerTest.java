@@ -2,6 +2,7 @@ package com.abhishek.smarthome.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
@@ -58,6 +59,15 @@ class HomeControllerTest {
 		assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content("{\"name\":\"My home\"}"))
 				.hasStatus(HttpStatus.CREATED)
 				.bodyJson().extractingPath("$.timezone").isEqualTo("UTC");
+	}
+
+	@Test
+	void shouldReturn400_whenTimezoneUnknown() {
+		assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON)
+				.content("{\"name\":\"My home\",\"timezone\":\"Mars/Base\"}"))
+				.hasStatus(HttpStatus.BAD_REQUEST)
+				.bodyJson().extractingPath("$.errors[0].field").isEqualTo("timezone");
+		then(homeService).shouldHaveNoInteractions();
 	}
 
 	@Test

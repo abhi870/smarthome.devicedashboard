@@ -27,23 +27,25 @@ api() {
   printf '%s' "$out"
 }
 
+# Lookups run inside $(...), where `set -e` does not apply (bash 3.2 on macOS has no inherit_errexit), so a failed
+# call is propagated explicitly with `|| exit 1` instead of being reported as "not found".
 vendor_id_by_code() {
   local id
-  id=$(api GET /vendors | jq -r --arg c "$1" '.[] | select(.code == $c) | .id')
+  id=$(api GET /vendors | jq -r --arg c "$1" '.[] | select(.code == $c) | .id') || exit 1
   [[ -n "$id" ]] || fail "Vendor $1 is not registered yet (run 01-admin-register-vendor.sh $1 ...)"
   echo "$id"
 }
 
 device_id_by_model() {
   local id
-  id=$(api GET /devices | jq -r --arg m "$1" '.[] | select(.model == $m) | .id')
+  id=$(api GET /devices | jq -r --arg m "$1" '.[] | select(.model == $m) | .id') || exit 1
   [[ -n "$id" ]] || fail "No supported device with model $1 (run 04-user-list-devices.sh to see the catalogue)"
   echo "$id"
 }
 
 home_id_by_name() {
   local id
-  id=$(api GET /homes | jq -r --arg n "$1" '[.[] | select(.name == $n)][0].id // empty')
+  id=$(api GET /homes | jq -r --arg n "$1" '[.[] | select(.name == $n)][0].id // empty') || exit 1
   [[ -n "$id" ]] || fail "No home named '$1' (run 03-user-register-home.sh first)"
   echo "$id"
 }
