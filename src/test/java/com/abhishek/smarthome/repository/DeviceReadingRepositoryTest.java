@@ -13,8 +13,10 @@ import com.abhishek.smarthome.enums.Conversion;
 import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.enums.MetricType;
 import com.abhishek.smarthome.enums.VendorCode;
+import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,9 @@ class DeviceReadingRepositoryTest {
 
 	@Autowired
 	HomeDeviceRepository homeDeviceRepository;
+
+	@Autowired
+	EntityManager entityManager;
 
 	private UUID homeDeviceId;
 
@@ -94,5 +99,23 @@ class DeviceReadingRepositoryTest {
 
 		assertThatThrownBy(() -> deviceReadingRepository.saveAndFlush(reading(MetricType.POWER, 999, 0)))
 				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void shouldStoreTimesInUtc_regardlessOfJvmTimezone() {
+		TimeZone original = TimeZone.getDefault();
+		try {
+			TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+			deviceReadingRepository.saveAndFlush(reading(MetricType.POWER, 100, 0));
+
+			Object stored = entityManager
+					.createNativeQuery("SELECT CAST(reading_time AS VARCHAR(40)) FROM device_reading")
+					.getSingleResult();
+
+			assertThat(stored.toString()).startsWith("2026-09-27 10:00:00").endsWith("+00");
+		}
+		finally {
+			TimeZone.setDefault(original);
+		}
 	}
 }

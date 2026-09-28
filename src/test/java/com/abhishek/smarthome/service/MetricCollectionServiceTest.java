@@ -18,10 +18,8 @@ import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.vendor.adapter.RawMetricSample;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapter;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapterRegistry;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,8 +36,8 @@ class MetricCollectionServiceTest {
 	private final VendorAdapterRegistry vendorAdapterRegistry = mock(VendorAdapterRegistry.class);
 	private final VendorAdapter amazonVendorAdapter = mock(VendorAdapter.class);
 	private final DeviceReadingService deviceReadingService = mock(DeviceReadingService.class);
-	private final MetricCollectionService metricCollectionService = new MetricCollectionService(homeDeviceService, vendorAdapterRegistry,
-			new DeviceReadingConverter(), deviceReadingService, Clock.fixed(NOW, ZoneOffset.UTC));
+	private final MetricCollectionService metricCollectionService = new MetricCollectionService(homeDeviceService,
+			vendorAdapterRegistry, new DeviceReadingConverter(), deviceReadingService);
 
 	private final List<MetricMapping> mappings = List.of(
 			MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE),
@@ -51,23 +49,28 @@ class MetricCollectionServiceTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
-	void shouldFetchSinceLastRun_convert_andSave() {
+	void shouldFetchSinceLastRun_upToNow_convert_andSave() {
 		// given
-		CollectionTarget target = target(NOW.minusSeconds(300));
+		Instant lastRunAt = Instant.now().minusSeconds(300);
+		CollectionTarget target = target(lastRunAt);
 		given(homeDeviceService.findDueTargets(50)).willReturn(List.of(target));
 		given(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).willReturn(amazonVendorAdapter);
-		Instant minute = Instant.parse("2026-09-27T10:01:00Z");
-		given(amazonVendorAdapter.fetchMetrics("amz-ac-01", NOW.minusSeconds(300), NOW)).willReturn(List.of(
-				new RawMetricSample(minute, Map.of("powerState", "ON", "powerConsumption", 1.15))));
+		given(amazonVendorAdapter.fetchMetrics(eq("amz-ac-01"), eq(lastRunAt), any())).willReturn(List.of(
+				new RawMetricSample(lastRunAt.plusSeconds(60), Map.of("powerState", "ON", "powerConsumption", 1.15))));
 
 		// when
+		Instant before = Instant.now();
 		int succeeded = metricCollectionService.collectDue(50, RETRY);
+		Instant after = Instant.now();
 
-		// then
+		// then: fetched [lastRunAt, now), converted, stored up to that same "now"
 		assertThat(succeeded).isEqualTo(1);
+		ArgumentCaptor<Instant> fetchedTo = ArgumentCaptor.forClass(Instant.class);
+		then(amazonVendorAdapter).should().fetchMetrics(eq("amz-ac-01"), eq(lastRunAt), fetchedTo.capture());
+		assertThat(fetchedTo.getValue()).isBetween(before, after);
 		ArgumentCaptor<List<DeviceReading>> readings = ArgumentCaptor.forClass(List.class);
 		then(deviceReadingService).should().saveCollected(eq(target.getHomeDeviceId()), readings.capture(),
-				eq(NOW.minusSeconds(300)), eq(NOW));
+				eq(lastRunAt), eq(fetchedTo.getValue()));
 		assertThat(readings.getValue()).extracting(DeviceReading::getValue).containsExactly("ON", "1150");
 		then(homeDeviceService).should(never()).scheduleRetry(any(), any());
 	}
@@ -82,8 +85,8 @@ class MetricCollectionServiceTest {
 	@Test
 	void shouldScheduleRetry_andContinueWithOtherDevices_whenVendorFails() {
 		// given: first device's vendor is down, second succeeds
-		CollectionTarget failing = target(NOW.minusSeconds(300));
-		CollectionTarget ok = target(NOW.minusSeconds(300));
+		CollectionTarget failing = target(Instant.now().minusSeconds(300));
+		CollectionTarget ok = target(Instant.now().minusSeconds(300));
 		given(homeDeviceService.findDueTargets(50)).willReturn(List.of(failing, ok));
 		given(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).willReturn(amazonVendorAdapter);
 		given(amazonVendorAdapter.fetchMetrics(any(), any(), any()))
@@ -96,7 +99,7 @@ class MetricCollectionServiceTest {
 		// then
 		assertThat(succeeded).isEqualTo(1);
 		then(homeDeviceService).should().scheduleRetry(failing.getHomeDeviceId(), RETRY);
-		then(deviceReadingService).should().saveCollected(eq(ok.getHomeDeviceId()), anyList(), any(), eq(NOW));
+		then(deviceReadingService).should().saveCollected(eq(ok.getHomeDeviceId()), anyList(), any(), any());
 		then(deviceReadingService).should(never()).saveCollected(eq(failing.getHomeDeviceId()), anyList(), any(), any());
 	}
 

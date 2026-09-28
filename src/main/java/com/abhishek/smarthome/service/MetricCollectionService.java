@@ -5,7 +5,6 @@ import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.vendor.adapter.RawMetricSample;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapterRegistry;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -31,7 +30,6 @@ public class MetricCollectionService {
 	private final VendorAdapterRegistry vendorAdapterRegistry;
 	private final DeviceReadingConverter deviceReadingConverter;
 	private final DeviceReadingService deviceReadingService;
-	private final Clock clock;
 
 	/**
 	 * Collects every device that is due now, up to {@code batchSize}.
@@ -52,7 +50,7 @@ public class MetricCollectionService {
 		MDC.put("homeDeviceId", target.getHomeDeviceId().toString());
 		MDC.put("vendor", target.getVendorCode().name());
 		try {
-			Instant to = clock.instant();
+			Instant to = Instant.now();
 			fetchAndStore(target, rangeStart(target, to), to);
 			return true;
 		}

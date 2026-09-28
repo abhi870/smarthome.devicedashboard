@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
+import com.abhishek.smarthome.dto.output.vendor.VendorResponse;
 import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.enums.VendorCode;
 import com.abhishek.smarthome.exception.VendorNotFoundException;
@@ -36,17 +37,17 @@ class VendorControllerTest {
 	VendorService vendorService;
 
 	@Test
-	void shouldReturn201WithLocationAndBody_whenRegistered() {
+	void shouldReturn201WithBody_whenRegistered() {
 		// given
 		Vendor vendor = Vendor.register(VendorCode.AMAZON, "Amazon", Instant.parse("2026-09-27T10:00:00Z"));
-		given(vendorService.register(VendorCode.AMAZON, "Amazon")).willReturn(vendor);
+		given(vendorService.register(VendorCode.AMAZON, "Amazon")).willReturn(VendorResponse.from(vendor));
 
 		// when
 		var response = assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content(BODY));
 
 		// then
-		response.hasStatus(HttpStatus.CREATED)
-				.hasHeader("Location", "http://localhost/api/v1/smart-home/vendors/" + vendor.getId());
+		response.hasStatus(HttpStatus.CREATED).doesNotContainHeader("Location");
+		response.bodyJson().extractingPath("$.id").isEqualTo(vendor.getId().toString());
 		response.bodyJson().extractingPath("$.code").isEqualTo("AMAZON");
 		response.bodyJson().extractingPath("$.name").isEqualTo("Amazon");
 	}
@@ -81,8 +82,8 @@ class VendorControllerTest {
 	void shouldListVendors() {
 		// given
 		Instant now = Instant.parse("2026-09-27T10:00:00Z");
-		given(vendorService.list()).willReturn(List.of(Vendor.register(VendorCode.AMAZON, "Amazon", now),
-				Vendor.register(VendorCode.SAMSUNG, "Samsung", now)));
+		given(vendorService.list()).willReturn(List.of(VendorResponse.from(Vendor.register(VendorCode.AMAZON, "Amazon", now)),
+				VendorResponse.from(Vendor.register(VendorCode.SAMSUNG, "Samsung", now))));
 
 		// when / then
 		var response = assertThat(mvc.get().uri("/api/v1/smart-home/vendors"));

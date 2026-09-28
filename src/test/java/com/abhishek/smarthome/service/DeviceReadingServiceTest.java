@@ -8,14 +8,13 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 import com.abhishek.smarthome.dto.input.reading.SaveDeviceReadingCommand;
+import com.abhishek.smarthome.dto.output.reading.DeviceReadingResponse;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.enums.MetricType;
 import com.abhishek.smarthome.exception.HomeDeviceNotFoundException;
 import com.abhishek.smarthome.exception.InvalidTimeRangeException;
 import com.abhishek.smarthome.repository.DeviceReadingRepository;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -27,8 +26,7 @@ class DeviceReadingServiceTest {
 
 	private final DeviceReadingRepository deviceReadingRepository = mock(DeviceReadingRepository.class);
 	private final HomeDeviceService homeDeviceService = mock(HomeDeviceService.class);
-	private final DeviceReadingService deviceReadingService = new DeviceReadingService(deviceReadingRepository, homeDeviceService,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+	private final DeviceReadingService deviceReadingService = new DeviceReadingService(deviceReadingRepository, homeDeviceService);
 
 	@Test
 	void shouldSaveReadingWithCollectedAtNow() {
@@ -37,8 +35,10 @@ class DeviceReadingServiceTest {
 		Instant time = Instant.parse("2026-09-27T10:05:00Z");
 
 		// when
-		DeviceReading saved = deviceReadingService.save(
+		Instant before = Instant.now();
+		DeviceReadingResponse saved = deviceReadingService.save(
 				new SaveDeviceReadingCommand(HOME_DEVICE_ID, MetricType.ENERGY, time, "12.345", "kWh"));
+		Instant after = Instant.now();
 
 		// then
 		assertThat(saved.getHomeDeviceId()).isEqualTo(HOME_DEVICE_ID);
@@ -46,13 +46,13 @@ class DeviceReadingServiceTest {
 		assertThat(saved.getValue()).isEqualTo("12.345");
 		assertThat(saved.getUnit()).isEqualTo("kWh");
 		assertThat(saved.getTime()).isEqualTo(time);
-		assertThat(saved.getCollectedAt()).isEqualTo(NOW);
+		assertThat(saved.getCollectedAt()).isBetween(before, after);
 	}
 
 	@Test
 	void shouldNotSave_whenHomeDeviceUnknown() {
 		// given
-		given(homeDeviceService.get(HOME_DEVICE_ID)).willThrow(new HomeDeviceNotFoundException(HOME_DEVICE_ID));
+		given(homeDeviceService.getHomeDevice(HOME_DEVICE_ID)).willThrow(new HomeDeviceNotFoundException(HOME_DEVICE_ID));
 
 		// when / then
 		assertThatThrownBy(() -> deviceReadingService.save(new SaveDeviceReadingCommand(HOME_DEVICE_ID, MetricType.POWER, NOW, "1", "W")))

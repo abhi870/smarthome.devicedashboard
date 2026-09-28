@@ -3,13 +3,9 @@ package com.abhishek.smarthome.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -38,11 +34,6 @@ public class Home {
 	@Version
 	private long version;
 
-	/** Devices registered in this home. Inverse side; {@link HomeDevice#getHome()} owns it. Lazy, never cascaded. */
-	@OneToMany(mappedBy = "home")
-	@Getter(AccessLevel.NONE)
-	private List<HomeDevice> devices = new ArrayList<>();
-
 	public static Home register(String name, String timezone, Instant now) {
 		Home home = new Home();
 		home.id = UUID.randomUUID();
@@ -50,9 +41,5 @@ public class Home {
 		home.timezone = timezone;
 		home.createdAt = now;
 		return home;
-	}
-
-	public List<HomeDevice> getDevices() {
-		return Collections.unmodifiableList(devices);
 	}
 }

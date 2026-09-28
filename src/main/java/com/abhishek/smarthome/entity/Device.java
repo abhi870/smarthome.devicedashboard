@@ -30,6 +30,9 @@ import lombok.NoArgsConstructor;
  * {@code AZ-AC12}). Users pick one of these when registering a {@link com.abhishek.smarthome.entity.HomeDevice}.
  * Many catalogue devices belong to one {@link Vendor}. Its {@link MetricMapping}s say how the vendor's metric names
  * and units translate to canonical metrics; they are owned by the device and saved/deleted with it.
+ *
+ * <p>The {@code vendor} relationship only maps the foreign key and is never navigated (no getter); read
+ * {@link #vendorId} and load vendors through their repository.
  */
 @Entity
 @Table(name = "device", uniqueConstraints = @UniqueConstraint(name = "uk_device_vendor_model",
@@ -41,9 +44,15 @@ public class Device {
 	@Id
 	private UUID id;
 
+	/** FK only (written on insert); never navigated. */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "vendor_id", nullable = false)
+	@Getter(AccessLevel.NONE)
 	private Vendor vendor;
+
+	/** Read-only view of the {@code vendor_id} column. */
+	@Column(name = "vendor_id", nullable = false, insertable = false, updatable = false)
+	private UUID vendorId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "device_type", nullable = false, length = 20)
@@ -73,6 +82,7 @@ public class Device {
 		Device device = new Device();
 		device.id = UUID.randomUUID();
 		device.vendor = vendor;
+		device.vendorId = vendor.getId();
 		device.deviceType = deviceType;
 		device.model = model;
 		device.name = name;

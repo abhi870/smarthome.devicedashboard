@@ -4,18 +4,17 @@ import com.abhishek.smarthome.dto.input.vendor.RegisterVendorRequest;
 import com.abhishek.smarthome.dto.output.vendor.VendorResponse;
 import com.abhishek.smarthome.service.VendorService;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/smart-home/vendors")
@@ -25,20 +24,18 @@ class VendorController {
 	private final VendorService vendorService;
 
 	@PostMapping("/register")
-	ResponseEntity<VendorResponse> register(@Valid @RequestBody RegisterVendorRequest request,
-			UriComponentsBuilder uriBuilder) {
-		VendorResponse created = VendorResponse.from(vendorService.register(request.getCode(), request.getName()));
-		URI location = uriBuilder.path("/api/v1/smart-home/vendors/{id}").build(created.getId());
-		return ResponseEntity.created(location).body(created);
+	@ResponseStatus(HttpStatus.CREATED)
+	VendorResponse register(@Valid @RequestBody RegisterVendorRequest request) {
+		return vendorService.register(request.getCode(), request.getName());
 	}
 
 	@GetMapping
 	List<VendorResponse> list() {
-		return vendorService.list().stream().map(VendorResponse::from).toList();
+		return vendorService.list();
 	}
 
 	@GetMapping("/{id}")
 	VendorResponse get(@PathVariable UUID id) {
-		return VendorResponse.from(vendorService.get(id));
+		return vendorService.get(id);
 	}
 }

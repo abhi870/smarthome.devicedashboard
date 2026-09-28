@@ -1,12 +1,13 @@
 package com.abhishek.smarthome.schedulers;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-/** Turns on {@code @Scheduled} jobs unless {@code smarthome.collection.enabled=false}. */
+/**
+ * Turns on {@code @Scheduled} jobs. Each job switches itself on/off with its own property
+ * ({@code smarthome.collection.enabled}, {@code smarthome.reports.enabled}).
+ */
 @Configuration
 @EnableScheduling
-@ConditionalOnProperty(prefix = "smarthome.collection", name = "enabled", havingValue = "true", matchIfMissing = true)
 class SchedulingConfig {
 }

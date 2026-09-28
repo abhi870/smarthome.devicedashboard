@@ -2,6 +2,7 @@ package com.abhishek.smarthome.dto.output.homedevice;
 
 import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.HomeDevice;
+import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
@@ -29,12 +30,11 @@ public final class HomeDeviceResponse {
 	private final Instant updatedAt;
 	private final long version;
 
-	private HomeDeviceResponse(HomeDevice hd) {
-		Device device = hd.getDevice();
+	private HomeDeviceResponse(HomeDevice hd, Device device, Vendor vendor) {
 		this.id = hd.getId();
-		this.homeId = hd.getHome().getId();
-		this.deviceId = device.getId();
-		this.vendorCode = device.getVendor().getCode();
+		this.homeId = hd.getHomeId();
+		this.deviceId = hd.getDeviceId();
+		this.vendorCode = vendor.getCode();
 		this.deviceType = device.getDeviceType();
 		this.model = device.getModel();
 		this.externalDeviceId = hd.getExternalDeviceId();
@@ -48,7 +48,8 @@ public final class HomeDeviceResponse {
 		this.version = hd.getVersion();
 	}
 
-	public static HomeDeviceResponse from(HomeDevice homeDevice) {
-		return new HomeDeviceResponse(homeDevice);
+	/** {@code device} and {@code vendor} are the home device's catalogue device and its vendor, loaded by the service. */
+	public static HomeDeviceResponse from(HomeDevice homeDevice, Device device, Vendor vendor) {
+		return new HomeDeviceResponse(homeDevice, device, vendor);
 	}
 }

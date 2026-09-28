@@ -1,6 +1,7 @@
 package com.abhishek.smarthome.service;
 
 import com.abhishek.smarthome.dto.input.device.RegisterDeviceCommand;
+import com.abhishek.smarthome.dto.output.device.DeviceResponse;
 import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.MetricMapping;
 import com.abhishek.smarthome.entity.Vendor;
@@ -8,8 +9,10 @@ import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.exception.DeviceNotFoundException;
 import com.abhishek.smarthome.exception.InvalidMetricMappingException;
 import com.abhishek.smarthome.repository.DeviceRepository;
-import java.time.Clock;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +30,6 @@ public class DeviceCatalogService {
 
 	private final DeviceRepository deviceRepository;
 	private final VendorService vendorService;
-	private final Clock clock;
 
 	/**
 	 * Adds a supported device model for a vendor, with its metric mappings.
@@ -35,10 +37,11 @@ public class DeviceCatalogService {
 	 * @throws com.abhishek.smarthome.exception.VendorNotFoundException if the vendor does not exist
 	 */
 	@Transactional
-	public Device register(RegisterDeviceCommand command) {
-		Vendor vendor = vendorService.get(command.getVendorId());
-		return deviceRepository.save(Device.register(vendor, command.getDeviceType(), command.getModel(), command.getName(),
-				command.getMetricMappings(), clock.instant()));
+	public DeviceResponse register(RegisterDeviceCommand command) {
+		Vendor vendor = vendorService.getVendor(command.getVendorId());
+		Device device = deviceRepository.save(Device.register(vendor, command.getDeviceType(), command.getModel(),
+				command.getName(), command.getMetricMappings(), Instant.now()));
+		return DeviceResponse.from(device, vendor);
 	}
 
 	/**
@@ -48,21 +51,49 @@ public class DeviceCatalogService {
 	 * @throws InvalidMetricMappingException if two mappings use the same external metric
 	 */
 	@Transactional
-	public Device replaceMetricMappings(UUID id, List<MetricMapping> mappings) {
-		Device device = get(id);
+	public DeviceResponse replaceMetricMappings(UUID id, List<MetricMapping> mappings) {
+		Device device = getDevice(id);
 		device.replaceMetricMappings(mappings);
-		return device;
+		return toResponse(device);
 	}
 
 	/**
 	 * @throws DeviceNotFoundException if no catalogue device has this id
 	 */
-	public Device get(UUID id) {
-		return deviceRepository.findWithVendorById(id).orElseThrow(() -> new DeviceNotFoundException(id));
+	public DeviceResponse get(UUID id) {
+		return toResponse(getDevice(id));
 	}
 
 	/** Supported devices, optionally filtered by vendor and/or type, ordered by name. */
-	public List<Device> list(@Nullable UUID vendorId, @Nullable DeviceType deviceType) {
+	public List<DeviceResponse> list(@Nullable UUID vendorId, @Nullable DeviceType deviceType) {
+		return toResponses(findDevices(vendorId, deviceType));
+	}
+
+	/**
+	 * The entity itself, for other services (e.g. to register a home device of this model).
+	 *
+	 * @throws DeviceNotFoundException if no catalogue device has this id
+	 */
+	public Device getDevice(UUID id) {
+		return deviceRepository.findById(id).orElseThrow(() -> new DeviceNotFoundException(id));
+	}
+
+	/** Catalogue devices with these ids, keyed by id (one query), for other services assembling related data. */
+	public Map<UUID, Device> getDevicesById(Collection<UUID> ids) {
+		return EntityLookups.indexById(deviceRepository.findAllById(ids), Device::getId);
+	}
+
+	private DeviceResponse toResponse(Device device) {
+		return DeviceResponse.from(device, vendorService.getVendor(device.getVendorId()));
+	}
+
+	/** Loads the vendors of all devices in one query and pairs each device with its vendor. */
+	private List<DeviceResponse> toResponses(List<Device> devices) {
+		Map<UUID, Vendor> vendorsById = vendorService.getVendorsById(EntityLookups.idsOf(devices, Device::getVendorId));
+		return devices.stream().map(device -> DeviceResponse.from(device, vendorsById.get(device.getVendorId()))).toList();
+	}
+
+	private List<Device> findDevices(@Nullable UUID vendorId, @Nullable DeviceType deviceType) {
 		if (vendorId != null && deviceType != null) {
 			return deviceRepository.findByVendorIdAndDeviceType(vendorId, deviceType, BY_NAME);
 		}

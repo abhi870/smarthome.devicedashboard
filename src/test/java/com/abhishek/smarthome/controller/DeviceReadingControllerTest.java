@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
+import com.abhishek.smarthome.dto.output.reading.DeviceReadingResponse;
 import com.abhishek.smarthome.dto.input.reading.SaveDeviceReadingCommand;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.enums.MetricType;
@@ -49,7 +50,7 @@ class DeviceReadingControllerTest {
 	void shouldStoreValueAndUnit() {
 		// given
 		given(deviceReadingService.save(any()))
-				.willReturn(DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, T0, "1150.5", "W", T0));
+				.willReturn(DeviceReadingResponse.from(DeviceReading.record(HOME_DEVICE_ID, MetricType.POWER, T0, "1150.5", "W", T0)));
 
 		// when
 		var response = assertThat(mvc.post().uri(BASE).contentType(APPLICATION_JSON)
@@ -72,7 +73,7 @@ class DeviceReadingControllerTest {
 	void shouldStoreSwitchState_andDefaultUnitToMetricUnit() {
 		// given
 		given(deviceReadingService.save(any()))
-				.willReturn(DeviceReading.record(HOME_DEVICE_ID, MetricType.SWITCH, T0, "ON", "on/off", T0));
+				.willReturn(DeviceReadingResponse.from(DeviceReading.record(HOME_DEVICE_ID, MetricType.SWITCH, T0, "ON", "on/off", T0)));
 
 		// when
 		assertThat(mvc.post().uri(BASE).contentType(APPLICATION_JSON).content(body("SWITCH", "\"value\":\"ON\"")))
@@ -113,8 +114,9 @@ class DeviceReadingControllerTest {
 		// given
 		Instant end = T0.plusSeconds(3600);
 		given(deviceReadingService.find(HOME_DEVICE_ID, T0, end, MetricType.TEMPERATURE)).willReturn(List.of(
-				DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0.plusSeconds(60), "21.0", "C", T0),
-				DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0, "21.5", "C", T0)));
+				DeviceReadingResponse.from(
+						DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0.plusSeconds(60), "21.0", "C", T0)),
+				DeviceReadingResponse.from(DeviceReading.record(HOME_DEVICE_ID, MetricType.TEMPERATURE, T0, "21.5", "C", T0))));
 
 		// when
 		var response = assertThat(mvc.get().uri(BASE).param("homeDeviceId", HOME_DEVICE_ID.toString())

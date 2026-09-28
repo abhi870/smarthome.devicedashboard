@@ -2,7 +2,6 @@ package com.abhishek.smarthome.controller;
 
 import com.abhishek.smarthome.dto.input.reading.SaveDeviceReadingRequest;
 import com.abhishek.smarthome.dto.output.reading.DeviceReadingResponse;
-import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.enums.MetricType;
 import com.abhishek.smarthome.service.DeviceReadingService;
 import jakarta.validation.Valid;
@@ -31,7 +30,7 @@ class DeviceReadingController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	DeviceReadingResponse save(@Valid @RequestBody SaveDeviceReadingRequest request) {
-		return DeviceReadingResponse.from(deviceReadingService.save(request.toCommand()));
+		return deviceReadingService.save(request.toCommand());
 	}
 
 	/**
@@ -41,7 +40,6 @@ class DeviceReadingController {
 	@GetMapping
 	List<DeviceReadingResponse> find(@RequestParam UUID homeDeviceId, @RequestParam Instant startDate,
 			@RequestParam Instant endDate, @RequestParam(required = false) @Nullable MetricType metric) {
-		return deviceReadingService.find(homeDeviceId, startDate, endDate, metric).stream().map(DeviceReadingResponse::from)
-				.toList();
+		return deviceReadingService.find(homeDeviceId, startDate, endDate, metric);
 	}
 }

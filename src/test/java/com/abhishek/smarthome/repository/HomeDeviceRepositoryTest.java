@@ -23,7 +23,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Limit;
 
-/** Relationships and constraints of vendor → device (catalogue) → home device ← home. */
+/** Foreign keys and constraints of vendor → device (catalogue) → home device ← home. */
 @DataJpaTest
 class HomeDeviceRepositoryTest {
 
@@ -59,18 +59,20 @@ class HomeDeviceRepositoryTest {
 	}
 
 	@Test
-	void shouldLoadDeviceAndVendor_whenFoundWithEntityGraph() {
+	void shouldExposeForeignKeyIds_withoutLoadingRelations() {
 		// given
 		HomeDevice saved = homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
 		em.clear();
 
 		// when
-		HomeDevice found = homeDeviceRepository.findWithDeviceById(saved.getId()).orElseThrow();
+		HomeDevice found = homeDeviceRepository.findById(saved.getId()).orElseThrow();
+		Device foundDevice = deviceRepository.findById(device.getId()).orElseThrow();
 		em.clear();
 
-		// then: associations are initialized, so reading them outside the persistence context works
-		assertThat(found.getDevice().getModel()).isEqualTo("SS-RF-1");
-		assertThat(found.getDevice().getVendor().getCode()).isEqualTo(VendorCode.SAMSUNG);
+		// then: read-only FK columns are plain values, usable after the persistence context is gone
+		assertThat(found.getHomeId()).isEqualTo(home.getId());
+		assertThat(found.getDeviceId()).isEqualTo(device.getId());
+		assertThat(foundDevice.getVendorId()).isEqualTo(vendor.getId());
 	}
 
 	@Test
@@ -79,10 +81,9 @@ class HomeDeviceRepositoryTest {
 		em.clear();
 
 		// when
-		Device found = deviceRepository.findWithVendorById(device.getId()).orElseThrow();
-		em.clear();
+		Device found = deviceRepository.findById(device.getId()).orElseThrow();
 
-		// then: mappings were saved with the device and are fetched by the entity graph
+		// then: mappings were saved with the device (lazy, loaded on first access inside the persistence context)
 		assertThat(found.getMetricMappings())
 				.extracting(MetricMapping::getExternalMetric, MetricMapping::getMetric, MetricMapping::getExternalUnit)
 				.containsExactlyInAnyOrder(
@@ -95,7 +96,7 @@ class HomeDeviceRepositoryTest {
 	@Test
 	void shouldReplaceMetricMappings() {
 		// given
-		Device loaded = deviceRepository.findWithVendorById(device.getId()).orElseThrow();
+		Device loaded = deviceRepository.findById(device.getId()).orElseThrow();
 
 		// when
 		loaded.replaceMetricMappings(List.of(MetricMapping.of("switch.switch", MetricType.SWITCH, Conversion.NONE)));
@@ -103,25 +104,8 @@ class HomeDeviceRepositoryTest {
 		em.clear();
 
 		// then
-		assertThat(deviceRepository.findWithVendorById(device.getId()).orElseThrow().getMetricMappings())
+		assertThat(deviceRepository.findById(device.getId()).orElseThrow().getMetricMappings())
 				.extracting(MetricMapping::getExternalMetric).containsExactly("switch.switch");
-	}
-
-	@Test
-	void shouldExposeInverseSides_forVendorAndHome() {
-		// given
-		homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-01", "Kitchen fridge", 60, NOW));
-		homeDeviceRepository.saveAndFlush(HomeDevice.register(home, device, "ss-rf-02", "Garage fridge", 60, NOW));
-		em.clear();
-
-		// when
-		Vendor reloadedVendor = em.find(Vendor.class, vendor.getId());
-		Home reloadedHome = em.find(Home.class, home.getId());
-
-		// then
-		assertThat(reloadedVendor.getDevices()).extracting(Device::getModel).containsExactly("SS-RF-1");
-		assertThat(reloadedHome.getDevices()).extracting(HomeDevice::getExternalDeviceId)
-				.containsExactlyInAnyOrder("ss-rf-01", "ss-rf-02");
 	}
 
 	@Test

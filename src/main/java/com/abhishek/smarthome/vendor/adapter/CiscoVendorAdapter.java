@@ -7,9 +7,7 @@ import static com.abhishek.smarthome.vendor.adapter.VendorRequests.getJson;
 import static com.abhishek.smarthome.vendor.adapter.VendorRequests.query;
 
 import com.abhishek.smarthome.enums.VendorCode;
-import com.abhishek.smarthome.vendor.client.VendorClientFactory;
-import com.abhishek.smarthome.vendor.client.VendorPage;
-import com.abhishek.smarthome.vendor.client.VendorPaginator;
+import com.abhishek.smarthome.vendor.client.VendorClientConfig;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -17,13 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 /**
- * Cisco: {@code GET /devices/{id}/metrics?since&limit} (epoch seconds, minutes), cursor paging via
- * {@code next_since}. Cisco has no end time, so the adapter asks only for the minutes left before {@code to}, stops
- * once the cursor reaches {@code to}, and drops samples at or after it. Samples are already flat.
+ * Cisco: {@code GET /devices/{id}/metrics?since&limit} (epoch seconds, minutes). Cisco has no end time, so the
+ * adapter asks for the minutes up to {@code to} (the collector never asks for more than 24 h) and drops samples at or
+ * after it. Samples are already flat.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,7 +30,8 @@ class CiscoVendorAdapter implements VendorAdapter {
 
 	static final int MAX_LIMIT = 1440;
 
-	private final VendorClientFactory vendorClientFactory;
+	@Qualifier(VendorClientConfig.CISCO)
+	private final RestClient ciscoRestClient;
 
 	@Override
 	public VendorCode getVendorCode() {
@@ -43,19 +43,10 @@ class CiscoVendorAdapter implements VendorAdapter {
 		if (!from.isBefore(to)) {
 			return List.of();
 		}
-		return VendorPaginator.fetchAll(cursor -> fetchPage(externalDeviceId, from, to, cursor));
-	}
-
-	private VendorPage<RawMetricSample> fetchPage(String deviceId, Instant from, Instant to, @Nullable String cursor) {
-		long since = cursor == null ? from.getEpochSecond() : Long.parseLong(cursor);
-		int limit = minutesUntil(Instant.ofEpochSecond(since), to);
-		Map<String, Object> body = getJson(vendorClientFactory.clientFor(VendorCode.CISCO), "/devices/{id}/metrics",
-				query("since", since, "limit", limit), deviceId);
-		List<RawMetricSample> samples = objects(map(body), "data").stream().map(CiscoVendorAdapter::toSample)
+		Map<String, Object> body = getJson(ciscoRestClient, "/devices/{id}/metrics",
+				query("since", from.getEpochSecond(), "limit", minutesUntil(from, to)), externalDeviceId);
+		return objects(map(body), "data").stream().map(CiscoVendorAdapter::toSample)
 				.filter(sample -> sample.getTime().isBefore(to)).toList();
-		long nextSince = longValue(map(body).get("next_since"), "next_since");
-		boolean hasNext = nextSince < to.getEpochSecond() && nextSince > since;
-		return hasNext ? VendorPage.of(samples, String.valueOf(nextSince)) : VendorPage.last(samples);
 	}
 
 	/** Whole minutes (rounded up) from {@code since} to {@code to}, between 1 and {@link #MAX_LIMIT}. */

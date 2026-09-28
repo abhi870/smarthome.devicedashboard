@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
+import com.abhishek.smarthome.dto.output.home.HomeResponse;
 import com.abhishek.smarthome.entity.Home;
 import com.abhishek.smarthome.exception.HomeNotFoundException;
 import com.abhishek.smarthome.service.HomeService;
@@ -33,25 +34,25 @@ class HomeControllerTest {
 	HomeService homeService;
 
 	@Test
-	void shouldReturn201WithLocationAndBody_whenRegistered() {
+	void shouldReturn201WithBody_whenRegistered() {
 		// given
 		Home home = Home.register("My home", "Asia/Kolkata", NOW);
-		given(homeService.register("My home", "Asia/Kolkata")).willReturn(home);
+		given(homeService.register("My home", "Asia/Kolkata")).willReturn(HomeResponse.from(home));
 
 		// when
 		var response = assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON)
 				.content("{\"name\":\"My home\",\"timezone\":\"Asia/Kolkata\"}"));
 
 		// then
-		response.hasStatus(HttpStatus.CREATED)
-				.hasHeader("Location", "http://localhost/api/v1/smart-home/homes/" + home.getId());
+		response.hasStatus(HttpStatus.CREATED).doesNotContainHeader("Location");
+		response.bodyJson().extractingPath("$.id").isEqualTo(home.getId().toString());
 		response.bodyJson().extractingPath("$.timezone").isEqualTo("Asia/Kolkata");
 	}
 
 	@Test
 	void shouldDefaultTimezoneToUtc_whenOmitted() {
 		// given
-		given(homeService.register("My home", "UTC")).willReturn(Home.register("My home", "UTC", NOW));
+		given(homeService.register("My home", "UTC")).willReturn(HomeResponse.from(Home.register("My home", "UTC", NOW)));
 
 		// when / then
 		assertThat(mvc.post().uri(REGISTER).contentType(APPLICATION_JSON).content("{\"name\":\"My home\"}"))
@@ -78,7 +79,7 @@ class HomeControllerTest {
 	@Test
 	void shouldListHomes() {
 		// given
-		given(homeService.list()).willReturn(List.of(Home.register("My home", "UTC", NOW)));
+		given(homeService.list()).willReturn(List.of(HomeResponse.from(Home.register("My home", "UTC", NOW))));
 
 		// when / then
 		assertThat(mvc.get().uri("/api/v1/smart-home/homes"))

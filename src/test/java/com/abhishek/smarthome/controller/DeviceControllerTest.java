@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
+import com.abhishek.smarthome.dto.output.device.DeviceResponse;
 import com.abhishek.smarthome.dto.input.device.RegisterDeviceCommand;
 import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.MetricMapping;
@@ -58,7 +59,7 @@ class DeviceControllerTest {
 	void shouldReturn201WithMappings_whenRegistered() {
 		// given
 		Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW);
-		given(deviceCatalogService.register(any())).willReturn(device);
+		given(deviceCatalogService.register(any())).willReturn(DeviceResponse.from(device, amazon));
 
 		// when
 		var response = assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("""
@@ -66,7 +67,8 @@ class DeviceControllerTest {
 				 {"externalMetric":"pwr_kw","metric":"POWER","conversion":"KW_TO_W"}]""")));
 
 		// then
-		response.hasStatus(HttpStatus.CREATED).hasHeader("Location", "http://localhost" + BASE + "/" + device.getId());
+		response.hasStatus(HttpStatus.CREATED).doesNotContainHeader("Location");
+		response.bodyJson().extractingPath("$.id").isEqualTo(device.getId().toString());
 		response.bodyJson().extractingPath("$.vendorCode").isEqualTo("AMAZON");
 		response.bodyJson().extractingPath("$.mappings[0].externalMetric").isEqualTo("room_temp_f");
 		response.bodyJson().extractingPath("$.mappings[0].externalUnit").isEqualTo("F");
@@ -78,8 +80,9 @@ class DeviceControllerTest {
 	@Test
 	void shouldDefaultConversionToNone_whenOmitted() {
 		// given
-		given(deviceCatalogService.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
-				List.of(MetricMapping.of("temperature", MetricType.TEMPERATURE, Conversion.NONE)), NOW));
+		given(deviceCatalogService.register(any())).willReturn(DeviceResponse.from(Device.register(amazon, DeviceType.AC,
+				"AZ-AC-1", "Amazon Smart AC", List.of(MetricMapping.of("temperature", MetricType.TEMPERATURE, Conversion.NONE)),
+				NOW), amazon));
 
 		// when
 		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON)
@@ -122,8 +125,8 @@ class DeviceControllerTest {
 	@Test
 	void shouldStoreExplicitRecipe_andCheckSample() {
 		// given
-		given(deviceCatalogService.register(any())).willReturn(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
-				mappings, NOW));
+		given(deviceCatalogService.register(any())).willReturn(DeviceResponse.from(Device.register(amazon, DeviceType.AC,
+				"AZ-AC-1", "Amazon Smart AC", mappings, NOW), amazon));
 		String recipe = """
 				[{"externalMetric":"p_mw","metric":"POWER","externalUnit":"mW","internalUnit":"W","factor":0.001,
 				  "offset":0,"sample":{"external":1150000,"expected":1150}}]""";
@@ -182,7 +185,7 @@ class DeviceControllerTest {
 		// given
 		Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW);
 		device.replaceMetricMappings(List.of(MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE)));
-		given(deviceCatalogService.replaceMetricMappings(eq(device.getId()), any())).willReturn(device);
+		given(deviceCatalogService.replaceMetricMappings(eq(device.getId()), any())).willReturn(DeviceResponse.from(device, amazon));
 
 		// when
 		var response = assertThat(mvc.put().uri(BASE + "/{id}/mappings", device.getId()).contentType(APPLICATION_JSON)
@@ -218,7 +221,8 @@ class DeviceControllerTest {
 	void shouldListDevices_filteredByVendorAndType() {
 		// given
 		given(deviceCatalogService.list(amazon.getId(), DeviceType.AC))
-				.willReturn(List.of(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", mappings, NOW)));
+				.willReturn(List.of(DeviceResponse.from(Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC",
+						mappings, NOW), amazon)));
 
 		// when / then
 		assertThat(mvc.get().uri(BASE).param("vendorId", amazon.getId().toString()).param("deviceType", "AC"))

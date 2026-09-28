@@ -4,6 +4,7 @@ import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.enums.MetricType;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -29,4 +30,8 @@ public interface DeviceReadingRepository extends JpaRepository<DeviceReading, UU
 			order by r.time desc, r.metric""")
 	List<DeviceReading> findInRange(@Param("homeDeviceId") UUID homeDeviceId, @Param("start") Instant start,
 			@Param("end") Instant end);
+
+	/** The last reading of a metric before {@code time} (reports: a counter's value when a period starts). */
+	Optional<DeviceReading> findFirstByHomeDeviceIdAndMetricAndTimeLessThanOrderByTimeDesc(UUID homeDeviceId,
+			MetricType metric, Instant time);
 }

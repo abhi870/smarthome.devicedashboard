@@ -6,13 +6,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,7 +16,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * An appliance vendor the platform integrates with. {@link #code} links the stored vendor to its integration
- * settings ({@code smarthome.vendors.<code>}). One vendor has many supported {@link Device} models.
+ * settings ({@code smarthome.vendors.<code>}). One vendor has many supported {@link Device} models (see {@link Device#getVendorId()}).
  */
 @Entity
 @Table(name = "vendor")
@@ -44,11 +40,6 @@ public class Vendor {
 	@Version
 	private long version;
 
-	/** Catalogue devices of this vendor. Inverse side; {@link Device#getVendor()} owns it. Lazy, never cascaded. */
-	@OneToMany(mappedBy = "vendor")
-	@Getter(AccessLevel.NONE)
-	private List<Device> devices = new ArrayList<>();
-
 	public static Vendor register(VendorCode code, String name, Instant now) {
 		Vendor vendor = new Vendor();
 		vendor.id = UUID.randomUUID();
@@ -56,9 +47,5 @@ public class Vendor {
 		vendor.name = name;
 		vendor.createdAt = now;
 		return vendor;
-	}
-
-	public List<Device> getDevices() {
-		return Collections.unmodifiableList(devices);
 	}
 }

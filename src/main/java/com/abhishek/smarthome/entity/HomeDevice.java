@@ -21,7 +21,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * A physical appliance a user registered in a {@link Home}, of a supported catalogue {@link Device} model.
  * Owns both relationships (many home devices → one home, many home devices → one catalogue device); the vendor
- * is {@code device.vendor}. Identified at the vendor by {@code externalDeviceId}.
+ * is the device's vendor. Identified at the vendor by {@code externalDeviceId}. The relationships only map the
+ * foreign keys and are never navigated (no getters); read {@link #homeId} / {@link #deviceId} and load the related
+ * rows through their repositories.
  *
  * <p>Scheduling: metrics are collected every {@code pollingIntervalSeconds}. {@code nextRunAt} is when the next
  * collection is due — the registration time at first (so it runs immediately), then {@code lastRunAt + interval}
@@ -37,13 +39,25 @@ public class HomeDevice {
 	@Id
 	private UUID id;
 
+	/** FK only (written on insert); never navigated. */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "home_id", nullable = false)
+	@Getter(AccessLevel.NONE)
 	private Home home;
 
+	/** Read-only view of the {@code home_id} column. */
+	@Column(name = "home_id", nullable = false, insertable = false, updatable = false)
+	private UUID homeId;
+
+	/** FK only (written on insert); never navigated. */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "device_id", nullable = false)
+	@Getter(AccessLevel.NONE)
 	private Device device;
+
+	/** Read-only view of the {@code device_id} column. */
+	@Column(name = "device_id", nullable = false, insertable = false, updatable = false)
+	private UUID deviceId;
 
 	/** The appliance's id at its vendor (used when fetching metrics). */
 	@Column(name = "external_device_id", nullable = false, length = 100)
@@ -88,7 +102,9 @@ public class HomeDevice {
 		HomeDevice homeDevice = new HomeDevice();
 		homeDevice.id = UUID.randomUUID();
 		homeDevice.home = home;
+		homeDevice.homeId = home.getId();
 		homeDevice.device = device;
+		homeDevice.deviceId = device.getId();
 		homeDevice.externalDeviceId = externalDeviceId;
 		homeDevice.name = name;
 		homeDevice.pollingIntervalSeconds = pollingIntervalSeconds;

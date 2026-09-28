@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import com.abhishek.smarthome.common.error.GlobalExceptionHandler;
+import com.abhishek.smarthome.dto.output.homedevice.HomeDeviceResponse;
 import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.Home;
 import com.abhishek.smarthome.entity.HomeDevice;
@@ -43,8 +44,8 @@ class HomeDeviceControllerTest {
 	HomeDeviceService homeDeviceService;
 
 	private final Home home = Home.register("My home", "Asia/Kolkata", NOW);
-	private final Device device = Device.register(Vendor.register(VendorCode.AMAZON, "Amazon", NOW), DeviceType.AC,
-			"AZ-AC-1", "Amazon Smart AC", List.of(), NOW);
+	private final Vendor amazon = Vendor.register(VendorCode.AMAZON, "Amazon", NOW);
+	private final Device device = Device.register(amazon, DeviceType.AC, "AZ-AC-1", "Amazon Smart AC", List.of(), NOW);
 
 	private String body(String extra) {
 		return """
@@ -53,17 +54,18 @@ class HomeDeviceControllerTest {
 	}
 
 	@Test
-	void shouldReturn201WithLocationAndBody_whenRegistered() {
+	void shouldReturn201WithBody_whenRegistered() {
 		// given
 		HomeDevice homeDevice = HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW);
-		given(homeDeviceService.register(any())).willReturn(homeDevice);
+		given(homeDeviceService.register(any())).willReturn(HomeDeviceResponse.from(homeDevice, device, amazon));
 
 		// when
 		var response = assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON)
 				.content(body(",\"pollingIntervalSeconds\":60")));
 
 		// then
-		response.hasStatus(HttpStatus.CREATED).hasHeader("Location", "http://localhost" + BASE + "/" + homeDevice.getId());
+		response.hasStatus(HttpStatus.CREATED).doesNotContainHeader("Location");
+		response.bodyJson().extractingPath("$.id").isEqualTo(homeDevice.getId().toString());
 		response.bodyJson().extractingPath("$.vendorCode").isEqualTo("AMAZON");
 		response.bodyJson().extractingPath("$.deviceType").isEqualTo("AC");
 		response.bodyJson().extractingPath("$.pollingIntervalSeconds").isEqualTo(60);
@@ -74,7 +76,8 @@ class HomeDeviceControllerTest {
 	void shouldDefaultPollingIntervalTo300_whenOmitted() {
 		// given
 		given(homeDeviceService.register(any()))
-				.willReturn(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 300, NOW));
+				.willReturn(HomeDeviceResponse.from(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 300, NOW), device,
+						amazon));
 
 		// when
 		assertThat(mvc.post().uri(BASE + "/register").contentType(APPLICATION_JSON).content(body("")))
@@ -114,7 +117,8 @@ class HomeDeviceControllerTest {
 	void shouldListHomeDevices_filteredByHome() {
 		// given
 		given(homeDeviceService.list(home.getId()))
-				.willReturn(List.of(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW)));
+				.willReturn(List.of(HomeDeviceResponse.from(HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW), device,
+						amazon)));
 
 		// when / then
 		var response = assertThat(mvc.get().uri(BASE).param("homeId", home.getId().toString()));
@@ -137,7 +141,7 @@ class HomeDeviceControllerTest {
 		// given
 		HomeDevice homeDevice = HomeDevice.register(home, device, "amz-ac-01", "Bedroom AC", 60, NOW);
 		homeDevice.changePollingInterval(900, NOW);
-		given(homeDeviceService.changePollingInterval(homeDevice.getId(), 900)).willReturn(homeDevice);
+		given(homeDeviceService.changePollingInterval(homeDevice.getId(), 900)).willReturn(HomeDeviceResponse.from(homeDevice, device, amazon));
 
 		// when / then
 		var response = assertThat(mvc.put().uri(BASE + "/{id}/polling-interval", homeDevice.getId())

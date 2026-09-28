@@ -1,11 +1,11 @@
 package com.abhishek.smarthome.service;
 
 import com.abhishek.smarthome.dto.input.reading.SaveDeviceReadingCommand;
+import com.abhishek.smarthome.dto.output.reading.DeviceReadingResponse;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.enums.MetricType;
 import com.abhishek.smarthome.exception.InvalidTimeRangeException;
 import com.abhishek.smarthome.repository.DeviceReadingRepository;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -24,19 +24,19 @@ public class DeviceReadingService {
 
 	private final DeviceReadingRepository deviceReadingRepository;
 	private final HomeDeviceService homeDeviceService;
-	private final Clock clock;
 
 	/**
 	 * Stores one reading; {@code collectedAt} is now.
-
+	 *
 	 * @throws com.abhishek.smarthome.exception.HomeDeviceNotFoundException if the home device does
 	 * not exist
 	 */
 	@Transactional
-	public DeviceReading save(SaveDeviceReadingCommand command) {
+	public DeviceReadingResponse save(SaveDeviceReadingCommand command) {
 		requireHomeDevice(command.getHomeDeviceId());
-		return deviceReadingRepository.save(DeviceReading.record(command.getHomeDeviceId(), command.getMetric(), command.getTime(),
-				command.getValue(), command.getUnit(), clock.instant()));
+		DeviceReading reading = deviceReadingRepository.save(DeviceReading.record(command.getHomeDeviceId(),
+				command.getMetric(), command.getTime(), command.getValue(), command.getUnit(), Instant.now()));
+		return DeviceReadingResponse.from(reading);
 	}
 
 	/**
@@ -68,16 +68,20 @@ public class DeviceReadingService {
 	 * @throws com.abhishek.smarthome.exception.HomeDeviceNotFoundException if the home device does
 	 * not exist
 	 */
-	public List<DeviceReading> find(UUID homeDeviceId, Instant start, Instant end, @Nullable MetricType metric) {
+	public List<DeviceReadingResponse> find(UUID homeDeviceId, Instant start, Instant end, @Nullable MetricType metric) {
 		if (!start.isBefore(end)) {
 			throw new InvalidTimeRangeException(start, end);
 		}
 		requireHomeDevice(homeDeviceId);
+		return findReadings(homeDeviceId, start, end, metric).stream().map(DeviceReadingResponse::from).toList();
+	}
+
+	private List<DeviceReading> findReadings(UUID homeDeviceId, Instant start, Instant end, @Nullable MetricType metric) {
 		return metric == null ? deviceReadingRepository.findInRange(homeDeviceId, start, end)
 				: deviceReadingRepository.findInRange(homeDeviceId, metric, start, end);
 	}
 
 	private void requireHomeDevice(UUID homeDeviceId) {
-		homeDeviceService.get(homeDeviceId);
+		homeDeviceService.getHomeDevice(homeDeviceId);
 	}
 }

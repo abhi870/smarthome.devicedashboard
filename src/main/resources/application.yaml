@@ -1,12 +1,33 @@
 spring:
   application:
     name: devicedashboard
+  jpa:
+    # No persistence context in the web layer: services return DTOs, so a stray lazy load fails fast instead of N+1.
+    open-in-view: false
+    properties:
+      hibernate:
+        # Lazy relations touched on a list load in one IN (...) query per batch, not one query per row.
+        default_batch_fetch_size: 50
+        # All timestamps are stored in UTC, whatever the JVM or database session timezone is.
+        jdbc.time_zone: UTC
+        timezone.default_storage: NORMALIZE_UTC
 
 smarthome:
   collection:
     enabled: ${COLLECTION_ENABLED:true}  # DeviceMetricFetchScheduler, ticks every second
     batch-size: 50                     # devices per tick
     retry-delay: 60s                   # after a failed vendor call (capped at the polling interval)
+  reports:
+    enabled: ${REPORTS_ENABLED:true}   # DailyReportScheduler
+    tick: PT15M                        # how often the daily job looks for due device-days
+    initial-delay: PT1M
+    grace-period: 1h                   # report a home-local day this long after its midnight (late readings)
+    backfill-days: 7                   # days the job catches up on after downtime
+    batch-size: 500                    # device-days per tick
+    retry-delay: 30m                   # failed DAILY report retried after retry-delay × attempt
+    max-attempts: 5
+    max-sample-gap: 15m                # a reading counts for at most this long (coverage, time-weighted avg)
+    max-range-days: 366                # longest on-demand report
   vendors:
     samsung:
       base-url: ${SAMSUNG_BASE_URL:http://localhost:8081/api/v1/samsung}

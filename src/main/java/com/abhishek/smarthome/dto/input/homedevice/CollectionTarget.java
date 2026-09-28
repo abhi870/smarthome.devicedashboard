@@ -1,7 +1,9 @@
 package com.abhishek.smarthome.dto.input.homedevice;
 
+import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.HomeDevice;
 import com.abhishek.smarthome.entity.MetricMapping;
+import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
 import java.util.List;
@@ -33,10 +35,10 @@ public final class CollectionTarget {
 		this.mappings = List.copyOf(mappings);
 	}
 
-	public static CollectionTarget of(HomeDevice homeDevice) {
-		return new CollectionTarget(homeDevice.getId(), homeDevice.getDevice().getVendor().getCode(),
-				homeDevice.getExternalDeviceId(), homeDevice.getPollingIntervalSeconds(), homeDevice.getLastRunAt(),
-				homeDevice.getDevice().getMetricMappings());
+	/** {@code device} and {@code vendor} are the home device's catalogue device and its vendor, loaded by the service. */
+	public static CollectionTarget of(HomeDevice homeDevice, Device device, Vendor vendor) {
+		return new CollectionTarget(homeDevice.getId(), vendor.getCode(), homeDevice.getExternalDeviceId(),
+				homeDevice.getPollingIntervalSeconds(), homeDevice.getLastRunAt(), device.getMetricMappings());
 	}
 
 	@Override

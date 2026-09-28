@@ -1,6 +1,7 @@
 package com.abhishek.smarthome.dto.output.device;
 
 import com.abhishek.smarthome.entity.Device;
+import com.abhishek.smarthome.entity.Vendor;
 import com.abhishek.smarthome.enums.DeviceType;
 import com.abhishek.smarthome.enums.VendorCode;
 import java.time.Instant;
@@ -21,10 +22,10 @@ public final class DeviceResponse {
 	private final List<MetricMappingResponse> mappings;
 	private final Instant createdAt;
 
-	private DeviceResponse(Device d) {
+	private DeviceResponse(Device d, Vendor vendor) {
 		this.id = d.getId();
-		this.vendorId = d.getVendor().getId();
-		this.vendorCode = d.getVendor().getCode();
+		this.vendorId = vendor.getId();
+		this.vendorCode = vendor.getCode();
 		this.deviceType = d.getDeviceType();
 		this.model = d.getModel();
 		this.name = d.getName();
@@ -32,7 +33,8 @@ public final class DeviceResponse {
 		this.createdAt = d.getCreatedAt();
 	}
 
-	public static DeviceResponse from(Device device) {
-		return new DeviceResponse(device);
+	/** {@code vendor} is the device's vendor, loaded by the service. */
+	public static DeviceResponse from(Device device, Vendor vendor) {
+		return new DeviceResponse(device, vendor);
 	}
 }

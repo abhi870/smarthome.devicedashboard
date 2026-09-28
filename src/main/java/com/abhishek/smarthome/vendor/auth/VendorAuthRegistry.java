@@ -21,8 +21,10 @@ public class VendorAuthRegistry {
 
 	public VendorAuthRegistry(List<VendorAuthInterceptorFactory> authInterceptorFactories, VendorConfigProvider vendorConfigProvider) {
 		Map<AuthType, VendorAuthInterceptorFactory> byType = indexByType(authInterceptorFactories);
+
 		for (VendorCode vendor : vendorConfigProvider.configuredVendors()) {
 			AuthType type = vendorConfigProvider.get(vendor).getAuth().getType();
+
 			VendorAuthInterceptorFactory factory = byType.get(type);
 			if (factory == null) {
 				throw new IllegalStateException("No auth factory for type %s (vendor %s); available: %s"
@@ -45,13 +47,14 @@ public class VendorAuthRegistry {
 
 	private static Map<AuthType, VendorAuthInterceptorFactory> indexByType(List<VendorAuthInterceptorFactory> authInterceptorFactories) {
 		Map<AuthType, VendorAuthInterceptorFactory> byType = new EnumMap<>(AuthType.class);
+
 		for (VendorAuthInterceptorFactory factory : authInterceptorFactories) {
-			VendorAuthInterceptorFactory previous = byType.put(factory.getAuthType(), factory);
-			if (previous != null) {
-				throw new IllegalStateException("Duplicate auth factories for type %s: %s and %s"
-						.formatted(factory.getAuthType(), previous.getClass().getSimpleName(),
-								factory.getClass().getSimpleName()));
+			AuthType authType = factory.getAuthType();
+			if (byType.containsKey(authType)) {
+				throw new IllegalStateException("Duplicate auth factories for type %s: %s and %s".formatted(authType,
+					byType.get(authType).getClass().getSimpleName(), factory.getClass().getSimpleName()));
 			}
+			byType.put(authType, factory);
 		}
 		return byType;
 	}
