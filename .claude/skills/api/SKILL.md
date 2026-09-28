@@ -13,7 +13,7 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 ## Step 0 — Understand before writing
 
 1. Parse the request into: resource and operations (list/get/create/update/delete/action).
-2. Read existing code for that resource (controller/, service/, dto/) and in `common/` (error handler, paging, Clock) — reuse, don't duplicate.
+2. Read existing code for that resource (controller/, service/, dto/) and in `common/` (error handler) — reuse, don't duplicate.
 3. If the domain model/schema doesn't exist yet, do that first (use the `/db-change` skill approach).
 4. Write a short contract sketch before coding (method, path, request, response, status codes, errors).
    If anything is ambiguous, pick the convention from this skill and state the assumption in the summary.
@@ -24,12 +24,12 @@ Follow `CLAUDE.md` (stack, packages, conventions). This skill adds the step-by-s
 |---|---|---|---|
 | List | `GET /api/v1/smart-home/{res}?page&size&sort&filters` | 200 `PageResponse<T>` | 400 bad filter |
 | Get | `GET /api/v1/smart-home/{res}/{id}` | 200 | 404 |
-| Create | `POST /api/v1/smart-home/{res}` | 201 + `Location` + body | 400, 409 duplicate |
+| Create | `POST /api/v1/smart-home/{res}` | 201 + body (no `Location`) | 400, 409 duplicate |
 | Partial update | `PATCH /api/v1/smart-home/{res}/{id}` | 200 | 400, 404, 409 version conflict |
 | Replace (rare) | `PUT /api/v1/smart-home/{res}/{id}` | 200 | 400, 404, 409 |
 | Delete | `DELETE /api/v1/smart-home/{res}/{id}` | 204 (idempotent: 204 even if already gone is acceptable, or 404 — be consistent) | 404 |
 | Action | `POST /api/v1/smart-home/{res}/{id}/{verb-noun}` e.g. `/collections` | 202 if async, 200/201 if sync | 404, 409, 429 |
-| Async job | `POST` → 202 + `Location: /api/v1/smart-home/{res}/{id}`; poll `GET` returns `status` | 202 | 400 |
+| Async job | `POST` → 202 + body with job `id`; poll `GET /api/v1/smart-home/{res}/{id}` returns `status` | 202 | 400 |
 
 - Plural kebab-case nouns, UUID path ids, camelCase JSON, ISO-8601 UTC `Instant`s, enums as UPPER_SNAKE strings.
 - Time ranges: `from` inclusive, `to` exclusive; validate `from < to` and max span.
@@ -98,7 +98,7 @@ public final class DeviceResponse {
 }
 ```
 
-**Controller** — thin: validate, delegate, map, set status/headers.
+**Controller** — thin: validate, delegate, set status/headers. The service already returns DTOs.
 ```java
 @RestController
 @RequestMapping("/api/v1/smart-home/devices")
@@ -108,37 +108,42 @@ class DeviceController {
     private final DeviceService service;
 
     @PostMapping
-    ResponseEntity<DeviceResponse> create(@Valid @RequestBody CreateDeviceRequest req, UriComponentsBuilder uri) {
-        var created = DeviceResponse.from(service.register(req.toCommand()));
-        return ResponseEntity.created(uri.path("/api/v1/smart-home/devices/{id}").build(created.getId())).body(created);
+    @ResponseStatus(HttpStatus.CREATED)          // body only: no Location header, no URIs in responses
+    DeviceResponse create(@Valid @RequestBody CreateDeviceRequest req) {
+        return service.register(req.toCommand());
     }
 
     @GetMapping
     PageResponse<DeviceResponse> list(@RequestParam(required = false) DeviceType type,
                                          @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        return PageResponse.from(service.list(type, cap(pageable)).map(DeviceResponse::from));
+        return PageResponse.from(service.list(type, cap(pageable)));
     }
 }
 ```
 
-**Service** — business rules, transactions, `Clock`.
+**Service** — business rules, transactions, current time via `Instant.now()`. Maps entities to response DTOs
+inside the transaction (`open-in-view` is off); keeps one entity-returning method for other services.
 ```java
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DeviceService {
     private final DeviceRepository repository;
-    private final Clock clock;
 
     @Transactional
-    public Device register(RegisterDeviceCommand cmd) {
+    public DeviceResponse register(RegisterDeviceCommand cmd) {
         if (repository.existsByVendorAndExternalDeviceId(cmd.getVendor(), cmd.getExternalDeviceId())) {
             throw new ConflictException("Device already registered for vendor device " + cmd.getExternalDeviceId());
         }
-        return repository.save(Device.register(cmd, clock.instant()));
+        return DeviceResponse.from(repository.save(Device.register(cmd, Instant.now())));
     }
 
-    public Device get(UUID id) {
+    public DeviceResponse get(UUID id) {
+        return DeviceResponse.from(getDevice(id));
+    }
+
+    /** The entity itself, for other services. */
+    public Device getDevice(UUID id) {
         return repository.findById(id).orElseThrow(() -> new DeviceNotFoundException(id));
     }
 }
@@ -191,16 +196,18 @@ Enable `spring.mvc.problemdetails.enabled: true`. Always set `title`, `detail`, 
 ## Step 4 — Production concerns checklist
 
 - [ ] Input validated (body `@Valid`, path/query `@Validated` on controller + constraints).
-- [ ] Correct status codes & `Location` headers; no 200-with-error-body.
+- [ ] Correct status codes; no `Location` header or URIs in responses; no 200-with-error-body.
 - [ ] Pagination bounded; sort whitelisted (reject unknown sort properties → 400).
 - [ ] Optimistic locking (`@Version`) surfaces as 409.
 - [ ] Idempotency: create endpoints reject duplicates on natural key (409); async `POST` accepts optional `Idempotency-Key`.
 - [ ] Transactions in service; no vendor calls inside DB transactions.
-- [ ] N+1 avoided (fetch joins / projections for list endpoints).
+- [ ] No relationship navigation: read FK ids (`getVendorId()`), load related rows in bulk through repositories
+      (`findAllById` + `EntityLookups`), fixed query count per use case; projections for report/aggregate endpoints.
+- [ ] Services return DTOs to controllers (mapped inside the transaction; `open-in-view` is off).
 - [ ] No entity leakage; no sensitive fields in responses or logs.
 - [ ] Structured logging at INFO for state changes, DEBUG for details; MDC keys set.
 - [ ] OpenAPI: `@Operation(summary)`, `@ApiResponse` for non-2xx (once springdoc is added).
-- [ ] Time via injected `Clock`.
+- [ ] Current time via `Instant.now()` in services, passed into entities; never `LocalDateTime.now()`.
 - [ ] Backwards compatible: additive changes only under `/v1`.
 
 ## Step 5 — Tests (use the `/test` skill conventions)
@@ -208,7 +215,7 @@ Enable `spring.mvc.problemdetails.enabled: true`. Always set `title`, `detail`, 
 Minimum per endpoint:
 1. `@WebMvcTest(FooController.class)` + `@MockitoBean FooService`: happy path (status, headers, JSON via
    `jsonPath`), validation 400 with field errors, 404, 409.
-2. Service unit test (Mockito, fixed `Clock`): business rules and exceptions.
+2. Service unit test (Mockito): business rules and exceptions; assert timestamps with `isBetween(before, after)`.
 3. One integration test `FooApiIT` (`@SpringBootTest(webEnvironment = RANDOM_PORT)` + real DB) covering the
    create → get → list → update → delete flow.
 

@@ -25,19 +25,22 @@ if asked or if you need proof. Never run commands that modify files, commit, pus
 
 **Correctness & domain**
 - Logic errors, off-by-one, null handling, wrong equality, swallowed exceptions.
-- Time: `Clock` injected (no `Instant.now()`), UTC `Instant`s, half-open `[from, to)` ranges, timezone/DST in daily windows.
+- Time: `Instant.now()` only in services (passed into entity methods), never `LocalDateTime.now()`; UTC `Instant`s, half-open `[from, to)` ranges, timezone/DST in daily windows.
 - Metric normalization: units converted correctly, unknown metrics dropped, vendor quirks stay inside `vendor/`.
 - Collection scheduling: due selection, `nextCollectionAt` advanced, backoff, one failure doesn't block others, idempotent reruns.
 - Reports: aggregation correctness, empty data, idempotent daily report, async status transitions.
 
 **API contract** (CLAUDE.md §5)
-- Product API under `/api/v1/smart-home`, mock vendors live only in the separate `../vendors` service (never in this project); plural nouns, correct status codes (201 + `Location`, 202 async, 204 delete, 409 conflicts).
+- Product API under `/api/v1/smart-home`, mock vendors live only in the separate `../vendors` service (never in this project); plural nouns, correct status codes (201 + body, 202 async, 204 delete, 409 conflicts); flag any `Location` header or URI in a response.
 - No Java `record` types anywhere (CLAUDE.md §6). Request classes validated (`@Valid`, constraints); errors as `ProblemDetail`; no entity leakage; bounded pagination.
 - Backward-incompatible changes to existing endpoints.
 
 **Persistence**
 - Entities: no `@Data`/`@Setter`/Lombok `equals`, `@Version` on mutable aggregates, `EnumType.STRING`.
 - N+1 queries, unbounded `findAll`, loading rows to aggregate in memory, missing indexes for new queries.
+- Navigating a relationship (`x.getVendor()`, a new `@ManyToOne` getter, inverse `@OneToMany`), `@EntityGraph` or fetch
+  joins, related rows loaded per row instead of in bulk by FK ids; non-`LAZY` associations;
+  enabling `open-in-view`; entities returned to controllers or mapped to DTOs outside the service transaction.
 - Transactions at service layer; **vendor calls inside a DB transaction** is a blocker.
 - SQL portable across Postgres and H2 (or isolated in `repository`); migrations never edited after being applied.
 

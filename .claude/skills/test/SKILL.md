@@ -35,8 +35,9 @@ Aim: many unit tests, focused slices, few but meaningful ITs.
 - AssertJ only (`assertThat`, `assertThatThrownBy`, `.extracting`, `.usingRecursiveComparison()`); no JUnit `assertEquals`.
 - `@MockitoBean` / `@MockitoSpyBean` (the old `@MockBean`/`@SpyBean` are removed in Boot 4).
 - Package-private test classes and methods (`class FooTest`, `void should…()`).
-- **Time**: never real time. Use a fixed `Clock` (`Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"), ZoneOffset.UTC)`)
-  or a small `MutableClock` test helper to advance time for scheduling tests.
+- **Time**: entity methods take `now` as a parameter, so test them with fixed instants
+  (`Instant.parse("2026-01-15T10:00:00Z")`). Services call `Instant.now()`; assert those values with
+  `before = Instant.now(); ...; after = Instant.now(); assertThat(x).isBetween(before, after)` or capture the argument.
 - **Async**: no `Thread.sleep`. Use Awaitility `await().atMost(5, SECONDS).untilAsserted(...)`.
 - **Randomness**: mock vendors take a seed / failure-mode config; tests set it explicitly.
 - **Isolation**: each test creates its own data (test data builders); no reliance on seed data or order.
@@ -65,10 +66,9 @@ public final class DeviceFixtures {
 @ExtendWith(MockitoExtension.class)
 class DeviceServiceTest {
     @Mock DeviceRepository repository;
-    Clock clock = Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"), ZoneOffset.UTC);
     DeviceService service;
 
-    @BeforeEach void setUp() { service = new DeviceService(repository, clock); }
+    @BeforeEach void setUp() { service = new DeviceService(repository); }
 
     @Test
     void shouldRejectDuplicateVendorDevice() {
@@ -101,8 +101,10 @@ class DeviceControllerTest {
     }
 }
 ```
-Check: status, `Location`, content type (`application/problem+json` for errors), JSON fields, and that the
-service was (or was not) called.
+Check: status, no `Location` header, content type (`application/problem+json` for errors), JSON fields, and that the
+service was (or was not) called. Services return response DTOs, so stub them with `FooResponse.from(entity)`.
+For fetch behaviour (no N+1, limit applied in SQL) assert Hibernate `Statistics.getPrepareStatementCount()` in a
+`@DataJpaTest` that `@Import`s the services (see `HomeDeviceServiceQueryCountTest`).
 
 ## Step 4 — Domain-specific must-cover cases
 

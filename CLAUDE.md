@@ -72,9 +72,11 @@ com.abhishek.smarthome
 ├── vendor/        # vendor integration (outbound):
 │   ├── config/    # per-vendor @ConfigurationProperties + VendorConfigProvider
 │   ├── auth/      # pluggable outbound auth (API key header today), one factory per AuthType
-│   ├── client/    # VendorClientFactory (RestClient per vendor) + paging (VendorPage, PageFetcher, VendorPaginator)
+│   ├── client/    # VendorClientConfig: one RestClient bean per vendor (samsungRestClient, amazonRestClient, ciscoRestClient)
 │   └── adapter/   # VendorAdapter per vendor (Samsung/Amazon/Cisco): fetch + page + flatten → RawMetricSample
-├── common/        # error handling (ProblemDetail), Clock bean
+├── reports/       # reporting feature, layered inside: controller/ dto/ entity/ enums/ exception/ repository/
+│                  # scheduler/ (DailyReportScheduler, ReportProperties) service/
+├── common/        # error handling (ProblemDetail)
 └── SmartHomeApplication.java
 ```
 
@@ -82,7 +84,11 @@ Tests mirror the same packages (e.g. `controller/DeviceControllerTest`, `reposit
 
 Rules (enforce with an ArchUnit test once added):
 
-- Controllers never touch repositories or JPA entities directly — go through a service; return DTO classes.
+- Controllers never touch repositories or JPA entities directly — go through a service. Controller-facing service
+  methods (`get`, `list`, `register`, …) return response DTOs, mapped **inside** the service transaction;
+  controllers only validate, delegate and set status/headers. Services that need another aggregate's entity use
+  its entity method (`getVendor`, `getHome`, `getDevice`, `getHomeDevice`) or bulk lookup (`getVendorsById`,
+  `getDevicesById`), never the DTO one.
 - `entity`, `repository`, `service` must not depend on `controller` or Spring Web.
 - Only `vendor` knows vendor-specific payloads; everything downstream sees **normalized** metrics.
 - This project has no compile-time dependency on `../vendors`; the only contract is HTTP (base URLs in config).
@@ -94,7 +100,7 @@ Rules (enforce with an ArchUnit test once added):
 - **Home** (entity, table `home`): `UUID id`, `name`, `timezone` (IANA id, default `UTC`; daily report boundaries),
   `createdAt`, `@Version`. One home → many home devices.
 - **Device** (entity, table `device`; **admin-managed catalogue** of supported models, shown to users before they
-  register): `UUID id`, `@ManyToOne(LAZY)` `vendor`, `DeviceType` enum (`TV|REFRIGERATOR|AC|OVEN|WASHER|DRYER`),
+  register): `UUID id`, `vendor` FK (`@ManyToOne(LAZY)`, no getter) + read-only `vendorId`, `DeviceType` enum (`TV|REFRIGERATOR|AC|OVEN|WASHER|DRYER`),
   `model`, `name`, `metricMappings`, `createdAt`, `@Version`. Unique `(vendor_id, model)`. One device → many home devices.
 - **MetricMapping** (`@Embeddable` value object, `@ElementCollection` of Device, table `device_metric_mapping`, PK
   `(device_id, external_metric)`): the complete recipe for reading a vendor metric — `externalMetric` (vendor name;
@@ -110,32 +116,40 @@ Rules (enforce with an ArchUnit test once added):
   conversion `NONE`); each has one canonical `getUnit()`. **Conversion**: `NONE|F_TO_C|K_TO_C|KW_TO_W|WH_TO_KWH|
   SECONDS_TO_MINUTES|HOURS_TO_MINUTES`, presets only (`externalUnit`, `factor`, `offset`). New unit = a mapping with its own factor/offset, no code.
 - **HomeDevice** (entity, table `home_device`; the physical appliance a user registered): `UUID id`,
-  `@ManyToOne(LAZY)` `home` and `device` (HomeDevice owns both FKs; vendor is `device.vendor`), `externalDeviceId`
+  `home` and `device` FKs (`@ManyToOne(LAZY)`, no getters) + read-only `homeId` / `deviceId` (vendor = the device's
+  `vendorId`), `externalDeviceId`
   (id at the vendor), `name`, `pollingIntervalSeconds` (default 300, 60–86400), `enabled`, `nextRunAt` (= registration time →
   first run immediately; then `lastRunAt + interval` via `markRun(now)`; `changePollingInterval(s, now)` reschedules
   to `max(now, lastRunAt + s)`), `lastRunAt`, `createdAt/updatedAt`, `@Version`. Due query:
   `findByEnabledTrueAndNextRunAtLessThanEqualOrderByNextRunAtAsc(now, Limit)` on index `(enabled, next_run_at)`;
   `PUT /home-devices/{id}/polling-interval` `{pollingIntervalSeconds}`. Unique `(device_id, external_device_id)`.
   This is what metrics are collected for.
-- Relationships: owning side is always the `@ManyToOne`; inverse sides (`Vendor.devices`, `Home.devices`) are
-  read-only `mappedBy` lists, never cascaded. Use `@EntityGraph` finders to avoid N+1.
+- **Relationships map foreign keys only — never navigate them.** Each `@ManyToOne(LAZY)` exists so inserts write
+  the FK; it has `@Getter(AccessLevel.NONE)` and a read-only twin column (`@Column(name = "x_id", insertable = false,
+  updatable = false) UUID xId`) that code reads instead. No inverse `@OneToMany` lists, no `@EntityGraph`, no fetch
+  joins.
+- **Related data is loaded in bulk through repositories, in the service**: collect the FK ids
+  (`EntityLookups.idsOf`), load them in one query (`VendorService.getVendorsById`,
+  `DeviceCatalogService.getDevicesById` → `findAllById`), then pair rows in memory (`HomeDeviceService
+  .withDeviceAndVendor`). Query count is fixed per use case (home-device list: 3; scheduler batch: 4), never per
+  row — `HomeDeviceServiceQueryCountTest` pins it. Response DTOs / snapshots take their parts explicitly
+  (`DeviceResponse.from(device, vendor)`, `HomeDeviceResponse.from(homeDevice, device, vendor)`,
+  `CollectionTarget.of(homeDevice, device, vendor)`).
+- Exception: `Device.metricMappings` is a value collection (part of the device, not a relationship); it is read
+  from the device and loaded with one `IN (...)` query per list via `hibernate.default_batch_fetch_size: 50`.
+- `spring.jpa.open-in-view: false` (no persistence context in the web layer). Reports use projection queries.
 - Schema is owned by **Flyway** (`src/main/resources/db/migration`); never `ddl-auto=update`.
 - **Vendor configuration**: `smarthome.vendors.<vendor>` → `base-url`, timeouts, `auth { type, name, prefix, api-key }`.
   `AuthType`: `API_KEY_HEADER` (header `name` = `prefix + api-key`; all vendors use this today).
   New auth schemes = new `VendorAuthInterceptorFactory` + config; no client changes. Secrets from env vars, never logged.
-- **VendorClientFactory** (`vendor.client`): at startup builds one `RestClient` per configured vendor from
-  `VendorConfigProvider` — `baseUrl`, JDK HttpClient with `connectTimeout`/`readTimeout`, auth interceptor from
-  `VendorAuthRegistry`. `clientFor(VendorCode)` returns the shared client (paths relative to the base URL, e.g.
-  `.get().uri("/devices")`); unknown vendor → `VendorNotConfiguredException`. Next: per-vendor clients on top of it
-  returning raw per-minute samples (`listDevices()`, `fetchMetrics(deviceIds, from, to)`).
-- **Paging** (`vendor.client`): vendors page differently (Samsung `page/size` + `page.totalPages`, Amazon
-  `maxResults/nextToken`, Cisco `since/limit` + `next_since`). A vendor client implements `PageFetcher<T>`
-  (`VendorPage<T> fetch(@Nullable String cursor)`; cursor = page number / token / epoch seconds, `null` = first page)
-  and `VendorPaginator.fetchAll(..)` or lazy `.stream(..)` follows `nextCursor` until `null`, with a max-pages guard
-  (default 100) and repeated-cursor detection (`VendorPaginationException`).
+- **Vendor clients** (`vendor.client.VendorClientConfig`): one `RestClient` bean per vendor (`samsungRestClient`,
+  `amazonRestClient`, `ciscoRestClient`), built at startup from `VendorConfigProvider` — base URL, JDK HttpClient with
+  `connectTimeout`/`readTimeout`, auth interceptor from `VendorAuthRegistry`. Each adapter injects its client with
+  `@Qualifier(VendorClientConfig.AMAZON)` (Lombok copies `@Qualifier` to the constructor via `lombok.config`). A vendor
+  without config fails startup. New vendor = config + `@Bean` method + adapter.
 - **VendorAdapter** (`vendor.adapter`, one `@Component` per vendor, looked up by `VendorAdapterRegistry.adapterFor(code)`):
   `fetchMetrics(externalDeviceId, from, to)` → per-minute `RawMetricSample(time, Map<String,Object> metrics)` in
-  `[from, to)`, all pages followed via `VendorPaginator`. Uses `VendorClientFactory.clientFor(code)`; bodies read as
+  `[from, to)` in one call per device (no pagination; the collector never asks for more than 24 h). Uses its injected per-vendor `RestClient`; bodies read as
   plain maps. Flattening: Samsung `components.main.<capability>.<attribute>.value` → `<capability>.<attribute>`;
   Amazon (one call per device: `/devices/{id}/metrics`) `properties[{name,value}]` → `name`; Cisco flat keys minus `ts`. Names/units stay vendor-specific.
 - **Collection** (`metrics.domain.service.MetricCollectionService`, driven by `schedulers.DeviceMetricFetchScheduler`):
@@ -147,7 +161,7 @@ Rules (enforce with an ArchUnit test once added):
   (capped at the interval, `lastRunAt` unchanged so the gap is re-fetched); other devices continue.
 - **Mock vendor APIs** (served by `../vendors` at `http://localhost:8081/api/v1/{samsung|amazon|cisco}/devices...`):
   one call per device, deliberately different auth headers (`X-API-Key`, `Authorization: Bearer`, `X-Cisco-Api-Key`),
-  range/paging params (ISO + page/size, epoch-ms + nextToken, epoch-s since/limit + next_since), time formats and
+  range params (ISO from/to, epoch-ms startTime/endTime, epoch-s since + limit minutes), time formats and
   payload shapes. Data is a recorded day per device (1440 per-minute samples) replayed for any date, energy counters
   never decreasing.
 - **DeviceReading** (entity, table `device_reading`, `metrics.domain`): `UUID id`, `homeDeviceId` (plain UUID column
@@ -158,32 +172,59 @@ Rules (enforce with an ArchUnit test once added):
   idempotent collection and fast per-device-per-metric report queries; index `(home_device_id, reading_time DESC)`.
   API: `POST /readings` body `{homeDeviceId, metric, time, value, unit?}` (201; duplicate → 409),
   `GET /readings?homeDeviceId=&startDate=&endDate=[&metric=]` (ISO instants, `[start, end)`, newest first).
-- **CollectionRun**: one row per attempt — status `SUCCESS | PARTIAL | FAILED | RATE_LIMITED | SKIPPED`,
-  readings count, error message, duration, startedAt.
-- **Report**: `UUID id`, type `DAILY | ON_DEMAND`, range `[from, to)`, scope (home, all or deviceIds),
-  status `PENDING | RUNNING | COMPLETED | FAILED`, payload (JSON text column), generatedAt.
-  Content per device per metric: min / max / avg / count, total energy kWh, collection success rate,
-  first/last reading. Served as JSON (default) or CSV (`Accept: text/csv`).
+- **Reports** (package `reports`, migration `V5__create_reports.sql`) — per home device:
+  - **Report** (table `report`): `type` `DAILY` (one per device and home-local day, by the daily job) or
+    `CUSTOM_RANGE` (on request); `localDate` (DAILY only), `periodStart/periodEnd` (`[start, end)`, UTC),
+    `timezone` (snapshot of `Home.timezone`), `metrics` (comma-separated), `status`
+    `QUEUED | RUNNING | SUCCEEDED | FAILED`, `attempts`, `nextAttemptAt`, `error`, `coveragePct`, `requestedAt`,
+    `completedAt`, `@Version`. Unique `(home_device_id, local_date)` — NULL for CUSTOM_RANGE — makes the daily job
+    idempotent. `summaries`: `@ElementCollection` of `MetricSummary` (`report_metric_summary`: metric, unit,
+    sampleCount, min, max, time-weighted avg, total, coveragePct); `dailyValues`: `DailyValue` per metric and day
+    (`report_daily_value`, CUSTOM_RANGE only; total for counters/switch, avg for gauges).
+  - **DailyMetricRollup** (table `daily_metric_rollup`, read model): per device, home-local day and metric — sample
+    count, min/max/avg, first/last reading, total, covered/period seconds, coverage. Written with the DAILY report
+    in one transaction; custom ranges read them for full days and raw readings for the partial edge days (and days
+    without rollups yet).
+  - **Aggregation** (`AggregationKind`, `MetricStatisticsCalculator`): GAUGE (temperature, power, humidity) →
+    min / time-weighted avg / max; COUNTER (energy, runtime, door count — cumulative meters) → total = sum of
+    increases from the last reading before the period (drops = resets, ignored), so days add up exactly; SWITCH →
+    total = minutes on. A reading holds until the next one, capped at `max-sample-gap` (15m); longer gaps lower
+    coverage.
+  - API: `POST /home-devices/{id}/reports` `{from, to, metrics?}` → 201 + SUCCEEDED report (synchronous; range
+    ≤ `max-range-days`, metrics must be mapped by the device, default all); `GET /home-devices/{id}/reports
+    ?type=&from=&to=` (ISO dates, home-local, inclusive; default last 31 days); `GET /reports/{id}`;
+    `POST /reports/{id}/regenerate` (recompute after late data; DAILY also recomputes its rollups).
 
 ### Scheduling model
 
 - `DeviceMetricFetchScheduler` runs `@Scheduled(fixedDelay = 1 s)` (ticks never overlap) when
-  `smarthome.collection.enabled` (default true; `@EnableScheduling` in `SchedulingConfig` is conditional on it too),
+  `smarthome.collection.enabled` (default true),
   collecting up to `smarthome.collection.batch-size` (50) due devices sequentially; `retry-delay` (60s) after failures.
   Changing an interval via API takes effect on the next tick. Single instance; add ShedLock before scaling out.
-- `DailyReportJob` runs by cron (`smarthome.report.daily-cron`, default `0 5 0 * * *`, zone
-  `smarthome.report.zone`) for the previous day; idempotent (unique on type + range + scope).
-- On-demand reports: `POST /api/v1/smart-home/reports` → 202, generated async, poll `GET /api/v1/smart-home/reports/{id}`.
+- `DailyReportScheduler` runs every `smarthome.reports.tick` (15 min) when `smarthome.reports.enabled`.
+  `DailyReportPlanner` (read-only tx) finds due device-days: per enabled home device, home-local days from
+  `max(registration day, last finished day − backfill-days + 1)` to the last day whose midnight is ≥ `grace-period`
+  (1h) ago, without a report or with a FAILED one due for retry (at most `batch-size`). `DailyReportService`
+  generates each in its own transaction (`ReportGenerator`); a failure is stored on the report (`FAILED`,
+  `nextAttemptAt = now + retry-delay × attempts`, up to `max-attempts`). `SchedulingConfig` enables scheduling
+  unconditionally; each job has its own `enabled` switch.
+- On-demand reports are synchronous (201 with the report); full days come from rollups, so a year-long range reads
+  ~365 rollup rows per metric plus two partial days of raw readings.
 - Guard jobs with ShedLock when multi-instance matters; single instance is fine for local review.
-- Always inject `java.time.Clock`; never call `Instant.now()` / `LocalDate.now()` directly.
+- Current time: services call `Instant.now()` (always UTC) and pass it into entity methods (`register(.., now)`,
+  `markRun(now)`), so entities stay pure and are tested with fixed instants. Never `LocalDateTime.now()`/`LocalDate.now()`.
+- **All timestamps are UTC**: entities/DTOs use `Instant` only (no `LocalDateTime`), columns are
+  `TIMESTAMP WITH TIME ZONE`, Hibernate `jdbc.time_zone=UTC` + `timezone.default_storage=NORMALIZE_UTC`, JVM default
+  timezone forced to UTC in `SmartHomeApplication.main`, Postgres container runs with `timezone=UTC`, and JSON uses
+  ISO-8601 with `Z`. Local time (e.g. `Home.timezone`) is applied only when computing report day boundaries.
 - Vendor HTTP/mock calls happen **outside** DB transactions; persist results in a short transaction after.
 
 ## 5. API conventions (full details in the `/api` skill)
 
 - Product API base path **`/api/v1/smart-home`**. JSON, camelCase. Plural nouns: `/vendors`, `/homes`, `/devices`, `/home-devices`,
   `/home-devices/{id}/metrics`, `/home-devices/{id}/collections`, `/reports`.
-- Registration endpoints: `POST /api/v1/smart-home/{vendors|homes|devices|home-devices}/register` → 201 + `Location:
-  /api/v1/smart-home/{res}/{id}`; `GET /api/v1/smart-home/{res}/{id}`. Catalogue devices reference `vendorId`;
+- Registration endpoints: `POST /api/v1/smart-home/{vendors|homes|devices|home-devices}/register` → 201 with the created
+  resource as the body (no `Location` header — responses never carry URIs); `GET /api/v1/smart-home/{res}/{id}`. Catalogue devices reference `vendorId`;
   home devices reference `homeId` + `deviceId` (UUIDs). List endpoints: `GET /vendors`, `GET /homes`,
   `GET /devices?vendorId=&deviceType=` (supported devices), `GET /home-devices?homeId=`;
   `PUT /devices/{id}/mappings` replaces a device's metric mappings (200).
@@ -193,7 +234,8 @@ Rules (enforce with an ArchUnit test once added):
 - Validation: Jakarta Bean Validation on request classes → 400 with `errors[]` field list.
 - Pagination: `page`, `size` (max 100), `sort` → `{ content, page: { number, size, totalElements, totalPages } }`.
 - Time: ISO-8601 UTC `Instant`; ranges are half-open `[from, to)`; max on-demand range configurable (default 31 days).
-- `POST` create → 201 + `Location`. Async → 202 + `Location`. `PATCH` partial update. `DELETE` → 204.
+- `POST` create → 201 + body (`@ResponseStatus(HttpStatus.CREATED)`), never a `Location` header or any URI in
+  responses; clients use the returned `id`. Async → 202 + body with the job `id`. `PATCH` partial update. `DELETE` → 204.
 - Optimistic locking via `@Version` → 409 on conflict.
 
 ## 6. Coding standards
@@ -223,7 +265,7 @@ Rules (enforce with an ArchUnit test once added):
 - Every change ships with tests. Unit (no Spring) → slice (`@WebMvcTest`, `@DataJpaTest`) → integration
   `*IT` (`@SpringBootTest`; Postgres via Testcontainers `@ServiceConnection` once added).
 - Name: `should<Outcome>_when<Condition>` + `@DisplayName` optional. Given / When / Then.
-- Deterministic: fixed/mutable test `Clock`, seeded mock vendors, no `Thread.sleep` (Awaitility), no order dependence.
+- Deterministic: fixed instants for entity logic; service tests assert "now" with `isBetween(before, after)`; seeded mock vendors, no `Thread.sleep` (Awaitility), no order dependence.
 - Use `@MockitoBean` (not the removed `@MockBean`).
 
 ## 8. Skills and agents

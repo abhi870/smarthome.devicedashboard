@@ -118,3 +118,20 @@ Content-Type: application/json
 
 ### Device readings of a device (and metric) between two instants: startDate inclusive, endDate exclusive, newest first
 GET {{host}}/api/v1/smart-home/readings?homeDeviceId={{homeDeviceId}}&metric=POWER&startDate=2026-09-27T00:00:00Z&endDate=2026-09-28T00:00:00Z
+
+### Reports: on-demand report over [from, to) — synchronous, 201 with the report. metrics optional (default: all mapped)
+POST {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}/reports
+Content-Type: application/json
+
+{"from": "2026-09-20T00:00:00Z", "to": "2026-09-27T00:00:00Z", "metrics": ["ENERGY", "TEMPERATURE"]}
+
+> {% client.global.set("reportId", response.body.id); %}
+
+### Reports of a device: DAILY ones for a range of home-local days (ISO dates, inclusive)
+GET {{host}}/api/v1/smart-home/home-devices/{{homeDeviceId}}/reports?type=DAILY&from=2026-09-01&to=2026-09-27
+
+### One report
+GET {{host}}/api/v1/smart-home/reports/{{reportId}}
+
+### Recompute a report from the current readings (e.g. after late data)
+POST {{host}}/api/v1/smart-home/reports/{{reportId}}/regenerate
