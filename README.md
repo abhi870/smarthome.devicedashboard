@@ -40,6 +40,47 @@ Without Docker, run on in-memory H2 instead (data is lost on restart):
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--spring.docker.compose.enabled=false
 ```
 
+### Database
+
+There is no datasource block in `application.yaml`: when the app starts, Spring Boot's Docker Compose support runs
+`compose.yaml`, waits for PostgreSQL and connects to it automatically. The container runs in UTC, and Flyway creates
+the schema from `src/main/resources/db/migration` (V1–V5).
+
+| | Value |
+|---|---|
+| Image | `postgres:latest` (service `postgres` in `compose.yaml`) |
+| Host / port | `localhost:5433` (container port 5432) |
+| Database | `mydatabase` |
+| Username / password | `myuser` / `secret` (local demo values) |
+| JDBC URL | `jdbc:postgresql://localhost:5433/mydatabase` |
+| Connection pool | HikariCP, max 20 connections (`spring.datasource.hikari.maximum-pool-size`) |
+
+Look at the data with any SQL client, or:
+
+```bash
+docker compose exec postgres psql -U myuser -d mydatabase
+# e.g.  \dt   select count(*) from device_reading;   select type, local_date, status from report;
+```
+
+Main tables: `vendor`, `device` (+ `device_metric_mapping`), `home`, `home_device`, `device_reading`, `report`
+(+ `report_metric_summary`, `report_daily_value`), `daily_metric_rollup`, and Flyway's `flyway_schema_history`.
+
+Start from an empty database with `docker compose down -v` (deletes the volume) before the next run.
+
+To use your own PostgreSQL instead of the compose container, turn compose support off and pass the connection:
+
+```bash
+SPRING_DOCKER_COMPOSE_ENABLED=false \
+SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:5432/<db> \
+SPRING_DATASOURCE_USERNAME=<user> SPRING_DATASOURCE_PASSWORD=<password> \
+./mvnw spring-boot:run
+```
+
+Tests don't need Docker for the repository and report tests: `@DataJpaTest` runs the same Flyway migrations on
+in-memory H2. `SmartHomeApplicationTests` starts the full app, so it uses the compose PostgreSQL (Docker running).
+
+### Settings
+
 Useful settings (`src/main/resources/application.yaml`, overridable by environment variables):
 
 | Setting | Default | Meaning |
