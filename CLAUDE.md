@@ -97,7 +97,7 @@ Rules (enforce with an ArchUnit test once added):
 
 - **Vendor** (entity, table `vendor`): `UUID id`, `code` (`VendorCode` enum `SAMSUNG|AMAZON|CISCO`, unique; links to
   `smarthome.vendors.<code>` integration config), `name`, `createdAt`, `@Version`. One vendor → many catalogue devices.
-- **Home** (entity, table `home`): `UUID id`, `name`, `timezone` (IANA id, default `UTC`; daily report boundaries),
+- **Home** (entity, table `home`): `UUID id`, `name`, `timezone` (IANA id, default `UTC`, validated by `@TimeZoneId` → 400; daily report boundaries),
   `createdAt`, `@Version`. One home → many home devices.
 - **Device** (entity, table `device`; **admin-managed catalogue** of supported models, shown to users before they
   register): `UUID id`, `vendor` FK (`@ManyToOne(LAZY)`, no getter) + read-only `vendorId`, `DeviceType` enum (`TV|REFRIGERATOR|AC|OVEN|WASHER|DRYER`),
@@ -199,7 +199,9 @@ Rules (enforce with an ArchUnit test once added):
 
 - `DeviceMetricFetchScheduler` runs `@Scheduled(fixedDelay = 1 s)` (ticks never overlap) when
   `smarthome.collection.enabled` (default true),
-  collecting up to `smarthome.collection.batch-size` (50) due devices sequentially; `retry-delay` (60s) after failures.
+  collecting up to `smarthome.collection.batch-size` (50) due devices **in parallel** on the `collectionExecutor` pool
+  (`parallelism`, 8 threads) with at most `max-concurrent-per-vendor` (4) calls in flight per vendor
+  (`VendorCallLimiter`, one semaphore per vendor); the tick waits for all devices. `retry-delay` (60s) after failures.
   Changing an interval via API takes effect on the next tick. Single instance; add ShedLock before scaling out.
 - `DailyReportScheduler` runs every `smarthome.reports.tick` (15 min) when `smarthome.reports.enabled`.
   `DailyReportPlanner` (read-only tx) finds due device-days: per enabled home device, home-local days from
@@ -207,7 +209,15 @@ Rules (enforce with an ArchUnit test once added):
   (1h) ago, without a report or with a FAILED one due for retry (at most `batch-size`). `DailyReportService`
   generates each in its own transaction (`ReportGenerator`); a failure is stored on the report (`FAILED`,
   `nextAttemptAt = now + retry-delay × attempts`, up to `max-attempts`). `SchedulingConfig` enables scheduling
-  unconditionally; each job has its own `enabled` switch.
+  unconditionally; each job has its own `enabled` switch. Device-days run in parallel on the `reportExecutor` pool
+  (`smarthome.reports.parallelism`, 4); the tick waits for all of them.
+- **Threads**: `@Scheduled` ticks run on a scheduler pool of 2 (`spring.task.scheduling.pool.size`), so collection
+  and the daily job never block each other; their work fans out to the two bounded pools in
+  `common/config/TaskExecutorsConfig` (queue = one batch, finish running tasks on shutdown). Hikari pool 20.
+  Everything a task touches is its own (snapshot, transaction, rows); shared beans are immutable after startup.
+- **Batched inserts**: `hibernate.jdbc.batch_size=50` + `order_inserts`. Entities with an assigned UUID id that are
+  bulk-inserted (`DeviceReading`, `DailyMetricRollup`) implement `Persistable` (`isNew` until persisted/loaded), so
+  `saveAll` persists instead of merging (no SELECT per row). Do the same for any new bulk-inserted entity.
 - On-demand reports are synchronous (201 with the report); full days come from rollups, so a year-long range reads
   ~365 rollup rows per metric plus two partial days of raw readings.
 - Guard jobs with ShedLock when multi-instance matters; single instance is fine for local review.

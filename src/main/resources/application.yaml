@@ -1,6 +1,14 @@
 spring:
   application:
     name: devicedashboard
+  task:
+    scheduling:
+      pool:
+        size: 2                        # collection and daily-report ticks never wait for each other
+      thread-name-prefix: scheduler-
+  datasource:
+    hikari:
+      maximum-pool-size: 20            # collection (8) + report (4) threads, schedulers and web requests
   jpa:
     # No persistence context in the web layer: services return DTOs, so a stray lazy load fails fast instead of N+1.
     open-in-view: false
@@ -8,6 +16,11 @@ spring:
       hibernate:
         # Lazy relations touched on a list load in one IN (...) query per batch, not one query per row.
         default_batch_fetch_size: 50
+        # Insert device_reading / daily_metric_rollup rows in JDBC batches (both implement Persistable, so saveAll
+        # persists instead of merging); order_inserts groups statements per table so batches stay full.
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
         # All timestamps are stored in UTC, whatever the JVM or database session timezone is.
         jdbc.time_zone: UTC
         timezone.default_storage: NORMALIZE_UTC
@@ -17,6 +30,8 @@ smarthome:
     enabled: ${COLLECTION_ENABLED:true}  # DeviceMetricFetchScheduler, ticks every second
     batch-size: 50                     # devices per tick
     retry-delay: 60s                   # after a failed vendor call (capped at the polling interval)
+    parallelism: 8                     # devices collected at the same time
+    max-concurrent-per-vendor: 4       # vendor calls in flight per vendor (rate limits)
   reports:
     enabled: ${REPORTS_ENABLED:true}   # DailyReportScheduler
     tick: PT15M                        # how often the daily job looks for due device-days
@@ -28,6 +43,7 @@ smarthome:
     max-attempts: 5
     max-sample-gap: 15m                # a reading counts for at most this long (coverage, time-weighted avg)
     max-range-days: 366                # longest on-demand report
+    parallelism: 4                     # device-days generated at the same time (each holds a DB connection)
   vendors:
     samsung:
       base-url: ${SAMSUNG_BASE_URL:http://localhost:8081/api/v1/samsung}

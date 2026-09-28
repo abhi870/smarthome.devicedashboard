@@ -7,7 +7,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,18 +19,22 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Persistable;
 
 /**
  * Read model: the statistics of one metric of one home device on one home-local day, computed from raw readings by
  * the daily report job. Custom-range reports read these for full days instead of re-scanning ~1440 readings per
  * metric and day. Unique {@code (home_device_id, local_date, metric)}; replaced when the day is regenerated.
+ *
+ * <p>{@link Persistable} so {@code saveAll} inserts directly (batched) instead of merging each row (the id is
+ * assigned in {@link #of}).
  */
 @Entity
 @Table(name = "daily_metric_rollup", uniqueConstraints = @UniqueConstraint(name = "uk_daily_metric_rollup",
 		columnNames = { "home_device_id", "local_date", "metric" }))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // for JPA
-public class DailyMetricRollup {
+public class DailyMetricRollup implements Persistable<UUID> {
 
 	@Id
 	private UUID id;
@@ -85,6 +92,22 @@ public class DailyMetricRollup {
 
 	@Column(name = "computed_at", nullable = false, updatable = false)
 	private Instant computedAt;
+
+	/** {@code true} until persisted or when loaded; drives {@link #isNew()}. */
+	@Transient
+	@Getter(AccessLevel.NONE)
+	private boolean newEntity = true;
+
+	@Override
+	public boolean isNew() {
+		return newEntity;
+	}
+
+	@PostPersist
+	@PostLoad
+	void markNotNew() {
+		newEntity = false;
+	}
 
 	public static DailyMetricRollup of(UUID homeDeviceId, LocalDate localDate, MetricStatistics statistics,
 			Instant now) {

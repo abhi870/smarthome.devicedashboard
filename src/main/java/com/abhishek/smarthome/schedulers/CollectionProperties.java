@@ -25,10 +25,23 @@ public final class CollectionProperties {
 	/** Wait before retrying a device whose collection failed (capped at its polling interval). */
 	private final Duration retryDelay;
 
+	/** Devices collected at the same time (threads of the collection pool). */
+	@Min(1)
+	@Max(64)
+	private final int parallelism;
+
+	/** Most calls in flight to one vendor at a time, whatever the parallelism (vendor rate limits). */
+	@Min(1)
+	@Max(64)
+	private final int maxConcurrentPerVendor;
+
 	public CollectionProperties(@DefaultValue("true") boolean enabled, @DefaultValue("50") int batchSize,
-			@DefaultValue("60s") Duration retryDelay) {
+			@DefaultValue("60s") Duration retryDelay, @DefaultValue("8") int parallelism,
+			@DefaultValue("4") int maxConcurrentPerVendor) {
 		this.enabled = enabled;
 		this.batchSize = batchSize;
 		this.retryDelay = retryDelay;
+		this.parallelism = parallelism;
+		this.maxConcurrentPerVendor = maxConcurrentPerVendor;
 	}
 }

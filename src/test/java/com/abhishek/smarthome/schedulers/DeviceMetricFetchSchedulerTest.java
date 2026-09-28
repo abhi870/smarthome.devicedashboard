@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class DeviceMetricFetchSchedulerTest {
 
 	private final MetricCollectionService metricCollectionService = mock(MetricCollectionService.class);
-	private final CollectionProperties collectionProperties = new CollectionProperties(true, 25, Duration.ofSeconds(30));
+	private final CollectionProperties collectionProperties = new CollectionProperties(true, 25, Duration.ofSeconds(30), 8, 4);
 	private final DeviceMetricFetchScheduler deviceMetricFetchScheduler = new DeviceMetricFetchScheduler(metricCollectionService, collectionProperties);
 
 	@Test

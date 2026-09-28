@@ -15,6 +15,7 @@ import com.abhishek.smarthome.entity.MetricMapping;
 import com.abhishek.smarthome.enums.Conversion;
 import com.abhishek.smarthome.enums.MetricType;
 import com.abhishek.smarthome.enums.VendorCode;
+import com.abhishek.smarthome.schedulers.CollectionProperties;
 import com.abhishek.smarthome.vendor.adapter.RawMetricSample;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapter;
 import com.abhishek.smarthome.vendor.adapter.VendorAdapterRegistry;
@@ -36,8 +37,11 @@ class MetricCollectionServiceTest {
 	private final VendorAdapterRegistry vendorAdapterRegistry = mock(VendorAdapterRegistry.class);
 	private final VendorAdapter amazonVendorAdapter = mock(VendorAdapter.class);
 	private final DeviceReadingService deviceReadingService = mock(DeviceReadingService.class);
+	private final VendorCallLimiter vendorCallLimiter = new VendorCallLimiter(
+			new CollectionProperties(true, 50, RETRY, 8, 2));
+	/** Runs each device on the calling thread, so assertions see its effects directly. */
 	private final MetricCollectionService metricCollectionService = new MetricCollectionService(homeDeviceService,
-			vendorAdapterRegistry, new DeviceReadingConverter(), deviceReadingService);
+			vendorAdapterRegistry, new DeviceReadingConverter(), deviceReadingService, vendorCallLimiter, Runnable::run);
 
 	private final List<MetricMapping> mappings = List.of(
 			MetricMapping.of("powerState", MetricType.SWITCH, Conversion.NONE),
@@ -109,5 +113,38 @@ class MetricCollectionServiceTest {
 
 		assertThat(metricCollectionService.collectDue(50, RETRY)).isZero();
 		then(vendorAdapterRegistry).shouldHaveNoInteractions();
+	}
+
+	@Test
+	void shouldCollectDevicesInParallel_withAtMostTheVendorCapInFlight() throws Exception {
+		// given: 6 due Amazon devices, 8 threads, but at most 2 Amazon calls at a time
+		List<CollectionTarget> targets = java.util.stream.IntStream.range(0, 6).mapToObj(i -> new CollectionTarget(
+				UUID.randomUUID(), VendorCode.AMAZON, "amz-" + i, 300, NOW, mappings)).toList();
+		given(homeDeviceService.findDueTargets(50)).willReturn(targets);
+		given(vendorAdapterRegistry.adapterFor(VendorCode.AMAZON)).willReturn(amazonVendorAdapter);
+		java.util.concurrent.atomic.AtomicInteger inFlight = new java.util.concurrent.atomic.AtomicInteger();
+		java.util.concurrent.atomic.AtomicInteger maxInFlight = new java.util.concurrent.atomic.AtomicInteger();
+		given(amazonVendorAdapter.fetchMetrics(any(), any(), any())).willAnswer(invocation -> {
+			maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+			Thread.sleep(100);
+			inFlight.decrementAndGet();
+			return List.of();
+		});
+		java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(8);
+		MetricCollectionService parallel = new MetricCollectionService(homeDeviceService, vendorAdapterRegistry,
+				new DeviceReadingConverter(), deviceReadingService, vendorCallLimiter, pool);
+
+		try {
+			// when
+			int collected = parallel.collectDue(50, RETRY);
+
+			// then: all collected (collectDue waits for every device), never more than 2 Amazon calls at once
+			assertThat(collected).isEqualTo(6);
+			assertThat(maxInFlight.get()).isEqualTo(2);
+			then(deviceReadingService).should(org.mockito.Mockito.times(6)).saveCollected(any(), anyList(), any(), any());
+		}
+		finally {
+			pool.shutdownNow();
+		}
 	}
 }

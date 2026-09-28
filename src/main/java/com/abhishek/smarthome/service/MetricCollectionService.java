@@ -1,5 +1,6 @@
 package com.abhishek.smarthome.service;
 
+import com.abhishek.smarthome.common.config.TaskExecutorsConfig;
 import com.abhishek.smarthome.dto.input.homedevice.CollectionTarget;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.entity.Vendor;
@@ -8,15 +9,23 @@ import com.abhishek.smarthome.vendor.adapter.VendorAdapterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
  * One collection pass: for each due home device, fetch its vendor metrics since the last run, convert them with the
  * device's mappings and store them. Vendor calls run outside any transaction; each device's readings and its
  * {@code nextRunAt} are saved together. A failing device is retried later and never stops the others.
+ *
+ * <p>Devices are collected in parallel on the {@link TaskExecutorsConfig#COLLECTION_EXECUTOR} pool, at most
+ * {@code max-concurrent-per-vendor} calls per vendor at a time ({@link VendorCallLimiter}). Each device is
+ * independent (own snapshot, own vendor call, own transaction), and a pass waits for all its devices before the
+ * next tick, so no device is collected twice at once.
  */
 @Slf4j
 @Service
@@ -30,15 +39,21 @@ public class MetricCollectionService {
 	private final VendorAdapterRegistry vendorAdapterRegistry;
 	private final DeviceReadingConverter deviceReadingConverter;
 	private final DeviceReadingService deviceReadingService;
+	private final VendorCallLimiter vendorCallLimiter;
+	@Qualifier(TaskExecutorsConfig.COLLECTION_EXECUTOR)
+	private final Executor collectionExecutor;
 
 	/**
-	 * Collects every device that is due now, up to {@code batchSize}.
+	 * Collects every device that is due now, up to {@code batchSize}, in parallel; returns when all are done.
 	 *
 	 * @return how many devices were collected successfully
 	 */
 	public int collectDue(int batchSize, Duration retryDelay) {
 		List<CollectionTarget> targets = homeDeviceService.findDueTargets(batchSize);
-		long succeeded = targets.stream().filter(target -> collect(target, retryDelay)).count();
+		List<CompletableFuture<Boolean>> runs = targets.stream()
+				.map(target -> CompletableFuture.supplyAsync(() -> collect(target, retryDelay), collectionExecutor))
+				.toList();
+		long succeeded = runs.stream().filter(CompletableFuture::join).count();
 		if (!targets.isEmpty()) {
 			log.info("Collected {}/{} due home devices", succeeded, targets.size());
 		}
@@ -68,8 +83,8 @@ public class MetricCollectionService {
 
 	/** Vendor call (no transaction) → readings → one transaction that stores them and moves {@code nextRunAt}. */
 	private void fetchAndStore(CollectionTarget target, Instant from, Instant to) {
-		List<RawMetricSample> samples = vendorAdapterRegistry.adapterFor(target.getVendorCode())
-				.fetchMetrics(target.getExternalDeviceId(), from, to);
+		List<RawMetricSample> samples = vendorCallLimiter.call(target.getVendorCode(), () -> vendorAdapterRegistry
+				.adapterFor(target.getVendorCode()).fetchMetrics(target.getExternalDeviceId(), from, to));
 		List<DeviceReading> readings = deviceReadingConverter.convert(target.getHomeDeviceId(), target.getMappings(), samples, to);
 		int stored = deviceReadingService.saveCollected(target.getHomeDeviceId(), readings, from, to);
 		log.debug("{} samples -> {} readings ({} new) for [{}, {})", samples.size(), readings.size(), stored, from, to);

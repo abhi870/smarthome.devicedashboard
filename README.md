@@ -46,6 +46,8 @@ Useful settings (`src/main/resources/application.yaml`, overridable by environme
 |---|---|---|
 | `COLLECTION_ENABLED` | `true` | Metrics collection scheduler (ticks every second, collects due devices) |
 | `REPORTS_ENABLED` | `true` | Daily report job |
+| `smarthome.collection.parallelism` / `max-concurrent-per-vendor` | `8` / `4` | Devices collected at once / vendor calls in flight per vendor |
+| `smarthome.reports.parallelism` | `4` | Device-days the daily job generates at once |
 | `SAMSUNG_BASE_URL`, `AMAZON_BASE_URL`, `CISCO_BASE_URL` | `http://localhost:8081/api/v1/<vendor>` | Vendor endpoints |
 | `SAMSUNG_API_KEY`, `AMAZON_API_KEY`, `CISCO_API_KEY` | demo keys | Keys the mock vendors accept |
 
@@ -60,6 +62,12 @@ Useful settings (`src/main/resources/application.yaml`, overridable by environme
 Covers the domain logic (unit conversion, scheduling, report aggregation), the web layer (`@WebMvcTest`: status
 codes, validation, error bodies), the JPA layer against the real Flyway schema (`@DataJpaTest` on H2: constraints,
 query counts, report generation end to end) and each vendor adapter against mocked HTTP responses.
+
+### Testing plan
+
+[docs/testing-plan.md](docs/testing-plan.md) walks through registering the vendors and their device models,
+the home, and the home devices with the Postman collection — expected results and negative checks for each step —
+and then verifying that collection runs. The demo scripts cover the same flows from a terminal.
 
 ### Try the whole flow by hand
 

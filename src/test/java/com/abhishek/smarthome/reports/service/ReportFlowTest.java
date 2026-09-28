@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
+import com.abhishek.smarthome.common.config.TaskExecutorsConfig;
 import com.abhishek.smarthome.entity.Device;
 import com.abhishek.smarthome.entity.DeviceReading;
 import com.abhishek.smarthome.entity.Home;
@@ -40,13 +41,16 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.SyncTaskExecutor;
 
 /**
  * End to end over the real schema: readings every 10 minutes since local midnight 4 days ago in Kolkata; energy is a
@@ -61,9 +65,15 @@ class ReportFlowTest {
 	private static final ZoneId KOLKATA = ZoneId.of("Asia/Kolkata");
 	private static final double KWH_PER_READING = 0.01;
 
+	/** Report properties, and a same-thread report executor so generation joins the test transaction. */
 	@TestConfiguration
 	@EnableConfigurationProperties(ReportProperties.class)
 	static class ReportPropertiesConfig {
+
+		@Bean(TaskExecutorsConfig.REPORT_EXECUTOR)
+		Executor reportExecutor() {
+			return new SyncTaskExecutor();
+		}
 	}
 
 	@Autowired

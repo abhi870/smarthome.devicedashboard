@@ -46,10 +46,16 @@ public final class ReportProperties {
 	@Max(3660)
 	private final int maxRangeDays;
 
+	/** Device-days the daily job generates at the same time (threads of the report pool; each uses a DB connection). */
+	@Min(1)
+	@Max(32)
+	private final int parallelism;
+
 	public ReportProperties(@DefaultValue("true") boolean enabled, @DefaultValue("1h") Duration gracePeriod,
 			@DefaultValue("7") int backfillDays, @DefaultValue("500") int batchSize,
 			@DefaultValue("30m") Duration retryDelay, @DefaultValue("5") int maxAttempts,
-			@DefaultValue("15m") Duration maxSampleGap, @DefaultValue("366") int maxRangeDays) {
+			@DefaultValue("15m") Duration maxSampleGap, @DefaultValue("366") int maxRangeDays,
+			@DefaultValue("4") int parallelism) {
 		this.enabled = enabled;
 		this.gracePeriod = gracePeriod;
 		this.backfillDays = backfillDays;
@@ -58,5 +64,6 @@ public final class ReportProperties {
 		this.maxAttempts = maxAttempts;
 		this.maxSampleGap = maxSampleGap;
 		this.maxRangeDays = maxRangeDays;
+		this.parallelism = parallelism;
 	}
 }
