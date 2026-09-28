@@ -5,21 +5,34 @@ vendors (Samsung, Amazon, Cisco) whose APIs differ in auth, request style, metri
 registers vendors, homes and devices, collects metrics on a per-device polling interval, keeps their history, and
 produces daily and on-demand reports.
 
-The vendor clouds are simulated by a separate service, [`../vendors`](../vendors) (port 8081), which this backend
-calls over HTTP exactly as it would call the real vendor APIs.
+The vendor clouds are simulated by a separate service,
+**[smarthome.vendors](https://github.com/abhi870/smarthome.vendors)** (port 8081), which this backend calls over
+HTTP exactly as it would call the real vendor APIs. **Start that service before this one** — without it, metrics
+collection fails and there is no data for readings or reports.
 
 ## How to run
 
 **Prerequisites:** Java 17, Docker (for PostgreSQL). `jq` and `curl` for the demo scripts.
 
-```bash
-# 1. Start the mock vendor clouds (port 8081)
-cd ../vendors && ./mvnw spring-boot:run
+**1. Run the mock vendor service first** (required). Clone it next to this repo and start it on port 8081:
 
-# 2. Start the backend (port 8080). PostgreSQL is started automatically from compose.yaml (host port 5433),
-#    and Flyway creates the schema.
-cd ../devicedashboard && ./mvnw spring-boot:run
+```bash
+git clone https://github.com/abhi870/smarthome.vendors.git vendors
+cd vendors && ./mvnw spring-boot:run
 ```
+
+Check it's up: `curl -H 'X-API-Key: samsung-demo-key' http://localhost:8081/api/v1/samsung/devices` lists the Samsung
+devices.
+
+**2. Start this backend** (port 8080) in another terminal. PostgreSQL is started automatically from `compose.yaml`
+(host port 5433), and Flyway creates the schema.
+
+```bash
+cd devicedashboard && ./mvnw spring-boot:run
+```
+
+If the vendor service runs elsewhere, point the backend at it with `SAMSUNG_BASE_URL`, `AMAZON_BASE_URL` and
+`CISCO_BASE_URL` (see the settings table below).
 
 Without Docker, run on in-memory H2 instead (data is lost on restart):
 
@@ -93,7 +106,7 @@ Errors use RFC 9457 Problem Details (`400` validation, `404` not found, `409` du
 
 - **User authentication and authorization are out of scope.** The API is open; there are no users, roles or
   per-home access checks. "Admin" and "user" are roles in the workflow only.
-- **Real vendor APIs are out of scope; they are mocked.** `../vendors` replays one recorded day of per-minute
+- **Real vendor APIs are out of scope; they are mocked.** [smarthome.vendors](https://github.com/abhi870/smarthome.vendors) replays one recorded day of per-minute
   samples per device, in each vendor's own format, auth header and time-range parameters. Faults like latency, 429 and 5xx
   are not simulated yet.
 - **Single instance.** The schedulers assume one running instance; running several needs a distributed lock
